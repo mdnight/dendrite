@@ -328,6 +328,15 @@ func Setup(
 		}, httputil.WithAllowGuests()),
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	if m := mscCfg.MSC2965; mscCfg.Enabled("msc2965") && m != nil && m.Enabled {
+		unstableMux.Handle("/org.matrix.msc2965/auth_issuer",
+			httputil.MakeExternalAPI("auth_issuer", func(r *http.Request) util.JSONResponse {
+				return util.JSONResponse{Code: http.StatusOK, JSON: map[string]string{
+					"issuer": m.Issuer,
+				}}
+			}))
+	}
+
 	if mscCfg.Enabled("msc2753") {
 		v3mux.Handle("/peek/{roomIDOrAlias}",
 			httputil.MakeAuthAPI(spec.Peek, userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
