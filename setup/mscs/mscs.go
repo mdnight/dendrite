@@ -37,7 +37,7 @@ func EnableMSC(cfg *config.Dendrite, cm *sqlutil.Connections, routers httputil.R
 		return msc2836.Enable(cfg, cm, routers, monolith.RoomserverAPI, monolith.FederationAPI, monolith.UserAPI, monolith.KeyRing)
 	case "msc2444": // enabled inside federationapi
 	case "msc2753": // enabled inside clientapi
-	case "msc2965": // enabled inside clientapi
+	case "msc3861": // enabled inside clientapi
 	default:
 		logrus.Warnf("EnableMSC: unknown MSC '%s', this MSC is either not supported or is natively supported by Dendrite", msc)
 	}

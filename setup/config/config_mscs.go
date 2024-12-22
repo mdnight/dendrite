@@ -7,10 +7,10 @@ type MSCs struct {
 	// 'msc2444': Peeking over federation - https://github.com/matrix-org/matrix-doc/pull/2444
 	// 'msc2753': Peeking via /sync - https://github.com/matrix-org/matrix-doc/pull/2753
 	// 'msc2836': Threading - https://github.com/matrix-org/matrix-doc/pull/2836
-	// 'msc2965': Delegate auth to an OIDC provider https://github.com/matrix-org/matrix-spec-proposals/pull/2965
+	// 'msc3861': Delegate auth to an OIDC provider https://github.com/matrix-org/matrix-spec-proposals/pull/3861
 	MSCs []string `yaml:"mscs"`
 
-	MSC2965 *MSC2965 `yaml:"msc2965,omitempty"`
+	MSC3861 *MSC3861 `yaml:"msc3861,omitempty"`
 
 	Database DatabaseOptions `yaml:"database,omitempty"`
 }
@@ -37,12 +37,12 @@ func (c *MSCs) Verify(configErrs *ConfigErrors) {
 	if c.Matrix.DatabaseOptions.ConnectionString == "" {
 		checkNotEmpty(configErrs, "mscs.database.connection_string", string(c.Database.ConnectionString))
 	}
-	if m := c.MSC2965; m != nil {
+	if m := c.MSC3861; m != nil {
 		m.Verify(configErrs)
 	}
 }
 
-type MSC2965 struct {
+type MSC3861 struct {
 	Enabled              bool   `yaml:"enabled"`
 	Issuer               string `yaml:"issuer"`
 	ClientID             string `yaml:"client_id"`
@@ -51,13 +51,13 @@ type MSC2965 struct {
 	AccountManagementURL string `yaml:"account_management_url"`
 }
 
-func (m *MSC2965) Verify(configErrs *ConfigErrors) {
+func (m *MSC3861) Verify(configErrs *ConfigErrors) {
 	if !m.Enabled {
 		return
 	}
-	checkNotEmpty(configErrs, "mscs.msc2965.issuer", string(m.Issuer))
-	checkNotEmpty(configErrs, "mscs.msc2965.client_id", string(m.ClientID))
-	checkNotEmpty(configErrs, "mscs.msc2965.client_secret", string(m.ClientSecret))
-	checkNotEmpty(configErrs, "mscs.msc2965.admin_token", string(m.AdminToken))
-	checkNotEmpty(configErrs, "mscs.msc2965.account_management_url", string(m.AccountManagementURL))
+	checkNotEmpty(configErrs, "mscs.msc3861.issuer", string(m.Issuer))
+	checkNotEmpty(configErrs, "mscs.msc3861.client_id", string(m.ClientID))
+	checkNotEmpty(configErrs, "mscs.msc3861.client_secret", string(m.ClientSecret))
+	checkNotEmpty(configErrs, "mscs.msc3861.admin_token", string(m.AdminToken))
+	checkNotEmpty(configErrs, "mscs.msc3861.account_management_url", string(m.AccountManagementURL))
 }

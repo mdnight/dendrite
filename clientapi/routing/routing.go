@@ -328,7 +328,7 @@ func Setup(
 		}, httputil.WithAllowGuests()),
 	).Methods(http.MethodPost, http.MethodOptions)
 
-	if m := mscCfg.MSC2965; mscCfg.Enabled("msc2965") && m != nil && m.Enabled {
+	if m := mscCfg.MSC3861; mscCfg.Enabled("msc3861") && m != nil && m.Enabled {
 		unstableMux.Handle("/org.matrix.msc2965/auth_issuer",
 			httputil.MakeExternalAPI("auth_issuer", func(r *http.Request) util.JSONResponse {
 				return util.JSONResponse{Code: http.StatusOK, JSON: map[string]string{
