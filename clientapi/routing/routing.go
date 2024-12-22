@@ -334,7 +334,12 @@ func Setup(
 				return util.JSONResponse{Code: http.StatusOK, JSON: map[string]string{
 					"issuer": m.Issuer,
 				}}
-			}))
+			})).Methods(http.MethodGet)
+
+		synapseAdminRouter.Handle("/admin/v1/username_available",
+			httputil.MakeServiceAdminAPI("admin_username_available", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminCheckUsernameAvailable(r, userAPI, cfg)
+			})).Methods(http.MethodGet)
 	}
 
 	if mscCfg.Enabled("msc2753") {

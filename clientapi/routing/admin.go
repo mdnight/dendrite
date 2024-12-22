@@ -496,6 +496,27 @@ func AdminDownloadState(req *http.Request, device *api.Device, rsAPI roomserverA
 	}
 }
 
+func AdminCheckUsernameAvailable(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+	cfg *config.ClientAPI,
+) util.JSONResponse {
+	username := req.URL.Query().Get("username")
+	if username == "" {
+		return util.MessageResponse(http.StatusBadRequest, "Query parameter 'username' is missing or empty")
+	}
+	rq := userapi.QueryAccountAvailabilityRequest{Localpart: username, ServerName: cfg.Matrix.ServerName}
+	rs := userapi.QueryAccountAvailabilityResponse{}
+	if err := userAPI.QueryAccountAvailability(req.Context(), &rq, &rs); err != nil {
+		return util.ErrorResponse(err)
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: map[string]bool{"available": rs.Available},
+	}
+}
+
 // GetEventReports returns reported events for a given user/room.
 func GetEventReports(
 	req *http.Request,

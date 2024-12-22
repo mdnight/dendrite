@@ -136,6 +136,38 @@ func MakeAdminAPI(
 	})
 }
 
+// MakeServiceAdminAPI is a wrapper around MakeAuthAPI which enforces that the request can only be
+// completed by a trusted service e.g. Matrix Auth Service.
+func MakeServiceAdminAPI(
+	metricsName, serviceToken string,
+	f func(*http.Request) util.JSONResponse,
+) http.Handler {
+	h := func(req *http.Request) util.JSONResponse {
+		logger := util.GetLogger(req.Context())
+		token, err := auth.ExtractAccessToken(req)
+
+		if err != nil {
+			logger.Debugf("ExtractAccessToken %s -> HTTP %d", req.RemoteAddr, http.StatusUnauthorized)
+			return util.JSONResponse{
+				Code: http.StatusUnauthorized,
+				JSON: spec.MissingToken(err.Error()),
+			}
+		}
+		if token != serviceToken {
+			logger.Debugf("Invalid service token '%s'", token)
+			return util.JSONResponse{
+				Code: http.StatusForbidden,
+				JSON: spec.UnknownToken(token),
+			}
+		}
+		// add the service addr to the logger
+		logger = logger.WithField("service_useragent", req.UserAgent())
+		req = req.WithContext(util.ContextWithLogger(req.Context(), logger))
+		return f(req)
+	}
+	return MakeExternalAPI(metricsName, h)
+}
+
 // MakeExternalAPI turns a util.JSONRequestHandler function into an http.Handler.
 // This is used for APIs that are called from the internet.
 func MakeExternalAPI(metricsName string, f func(*http.Request) util.JSONResponse) http.Handler {
