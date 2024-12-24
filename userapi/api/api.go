@@ -471,6 +471,14 @@ type OpenIDTokenAttributes struct {
 	ExpiresAtMS int64
 }
 
+// LocalpartExternalID represents a connection between Matrix account and OpenID Connect provider
+type LocalpartExternalID struct {
+	Localpart    string
+	ExternalID   string
+	AuthProvider string
+	CreatedTs    int64
+}
+
 // UserInfo is for returning information about the user an OpenID token was issued for
 type UserInfo struct {
 	Sub string // The Matrix user's ID who generated the token

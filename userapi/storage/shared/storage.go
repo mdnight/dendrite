@@ -49,6 +49,7 @@ type Database struct {
 	Notifications         tables.NotificationTable
 	Pushers               tables.PusherTable
 	Stats                 tables.StatsTable
+	LocalpartExternalIDs  tables.LocalpartExternalIDsTable
 	LoginTokenLifetime    time.Duration
 	ServerName            spec.ServerName
 	BcryptCost            int
@@ -868,6 +869,18 @@ func (d *Database) UpsertPusher(
 			localpart,
 			serverName)
 	})
+}
+
+func (d *Database) CreateLocalpartExternalID(ctx context.Context, localpart, externalID, authProvider string) error {
+	return d.LocalpartExternalIDs.Insert(ctx, nil, localpart, externalID, authProvider)
+}
+
+func (d *Database) GetLocalpartForExternalID(ctx context.Context, externalID, authProvider string) (*api.LocalpartExternalID, error) {
+	return d.LocalpartExternalIDs.Select(ctx, nil, externalID, authProvider)
+}
+
+func (d *Database) DeleteLocalpartExternalID(ctx context.Context, externalID, authProvider string) error {
+	return d.LocalpartExternalIDs.Delete(ctx, nil, externalID, authProvider)
 }
 
 // GetPushers returns the pushers matching the given localpart.

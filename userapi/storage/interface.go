@@ -134,6 +134,12 @@ type Notification interface {
 	DeleteOldNotifications(ctx context.Context) error
 }
 
+type LocalpartExternalID interface {
+	CreateLocalpartExternalID(ctx context.Context, localpart, externalID, authProvider string) error
+	GetLocalpartForExternalID(ctx context.Context, externalID, authProvider string) (*api.LocalpartExternalID, error)
+	DeleteLocalpartExternalID(ctx context.Context, externalID, authProvider string) error
+}
+
 type UserDatabase interface {
 	Account
 	AccountData
@@ -147,6 +153,7 @@ type UserDatabase interface {
 	Statistics
 	ThreePID
 	RegistrationTokens
+	LocalpartExternalID
 }
 
 type KeyChangeDatabase interface {

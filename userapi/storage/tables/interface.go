@@ -127,6 +127,16 @@ type StatsTable interface {
 	UpsertDailyStats(ctx context.Context, txn *sql.Tx, serverName spec.ServerName, stats types.MessageStats, activeRooms, activeE2EERooms int64) error
 }
 
+type LocalpartExternalIDsTable interface {
+	Select(ctx context.Context, txn *sql.Tx, externalID, authProvider string) (*api.LocalpartExternalID, error)
+	Insert(ctx context.Context, txn *sql.Tx, localpart, externalID, authProvider string) error
+	Delete(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error
+}
+
+type UIAuthSessionsTable interface {
+	SelectByID(ctx context.Context, txn *sql.Tx, sessionID int) (*api.UIAuthSession, error)
+}
+
 type NotificationFilter uint32
 
 const (
