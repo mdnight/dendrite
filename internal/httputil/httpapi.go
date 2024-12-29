@@ -58,17 +58,23 @@ func WithAuth() AuthAPIOption {
 	}
 }
 
+type UserVerifier interface {
+	// VerifyUserFromRequest authenticates the HTTP request,
+	// on success returns Device of the requester.
+	VerifyUserFromRequest(req *http.Request) (*userapi.Device, *util.JSONResponse)
+}
+
 // MakeAuthAPI turns a util.JSONRequestHandler function into an http.Handler which authenticates the request.
 func MakeAuthAPI(
-	metricsName string, userAPI userapi.QueryAcccessTokenAPI,
+	metricsName string, userVerifier UserVerifier,
 	f func(*http.Request, *userapi.Device) util.JSONResponse,
 	checks ...AuthAPIOption,
 ) http.Handler {
 	h := func(req *http.Request) util.JSONResponse {
 		logger := util.GetLogger(req.Context())
-		device, err := auth.VerifyUserFromRequest(req, userAPI)
+		device, err := userVerifier.VerifyUserFromRequest(req)
 		if err != nil {
-			logger.Debugf("VerifyUserFromRequest %s -> HTTP %d", req.RemoteAddr, err.Code)
+			logger.Debugf("VerifyUserFromRequest %s -> HTTP %d: JSON %+v", req.RemoteAddr, err.Code, err.JSON)
 			return *err
 		}
 		// add the user ID to the logger
@@ -122,11 +128,11 @@ func MakeAuthAPI(
 // MakeAdminAPI is a wrapper around MakeAuthAPI which enforces that the request can only be
 // completed by a user that is a server administrator.
 func MakeAdminAPI(
-	metricsName string, userAPI userapi.QueryAcccessTokenAPI,
+	metricsName string, userVerifier UserVerifier,
 	f func(*http.Request, *userapi.Device) util.JSONResponse,
 ) http.Handler {
-	return MakeAuthAPI(metricsName, userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-		if device.AccountType != userapi.AccountTypeAdmin {
+	return MakeAuthAPI(metricsName, userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+		if device == nil || device.AccountType != userapi.AccountTypeAdmin {
 			return util.JSONResponse{
 				Code: http.StatusForbidden,
 				JSON: spec.Forbidden("This API can only be used by admin users."),
@@ -136,8 +142,8 @@ func MakeAdminAPI(
 	})
 }
 
-// MakeServiceAdminAPI is a wrapper around MakeAuthAPI which enforces that the request can only be
-// completed by a trusted service e.g. Matrix Auth Service.
+// MakeServiceAdminAPI is a wrapper around MakeExternalAPI which enforces that the request can only be
+// completed by a trusted service e.g. Matrix Auth Service (MAS).
 func MakeServiceAdminAPI(
 	metricsName, serviceToken string,
 	f func(*http.Request) util.JSONResponse,
@@ -232,7 +238,7 @@ func MakeExternalAPI(metricsName string, f func(*http.Request) util.JSONResponse
 
 // MakeHTTPAPI adds Span metrics to the HTML Handler function
 // This is used to serve HTML alongside JSON error messages
-func MakeHTTPAPI(metricsName string, userAPI userapi.QueryAcccessTokenAPI, enableMetrics bool, f func(http.ResponseWriter, *http.Request), checks ...AuthAPIOption) http.Handler {
+func MakeHTTPAPI(metricsName string, userVerifier UserVerifier, enableMetrics bool, f func(http.ResponseWriter, *http.Request), checks ...AuthAPIOption) http.Handler {
 	withSpan := func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodOptions {
 			util.SetCORSHeaders(w)
@@ -252,7 +258,7 @@ func MakeHTTPAPI(metricsName string, userAPI userapi.QueryAcccessTokenAPI, enabl
 
 		if opts.WithAuth {
 			logger := util.GetLogger(req.Context())
-			_, jsonErr := auth.VerifyUserFromRequest(req, userAPI)
+			_, jsonErr := userVerifier.VerifyUserFromRequest(req)
 			if jsonErr != nil {
 				w.WriteHeader(jsonErr.Code)
 				if err := json.NewEncoder(w).Encode(jsonErr.JSON); err != nil {

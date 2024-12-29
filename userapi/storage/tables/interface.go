@@ -133,10 +133,6 @@ type LocalpartExternalIDsTable interface {
 	Delete(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error
 }
 
-type UIAuthSessionsTable interface {
-	SelectByID(ctx context.Context, txn *sql.Tx, sessionID int) (*api.UIAuthSession, error)
-}
-
 type NotificationFilter uint32
 
 const (
@@ -202,7 +198,8 @@ type StaleDeviceLists interface {
 
 type CrossSigningKeys interface {
 	SelectCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string) (r types.CrossSigningKeyMap, err error)
-	UpsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes) error
+	SelectCrossSigningKeysForUserAndKeyType(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose) (r types.CrossSigningKeyMap, err error)
+	UpsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes, updatableWithoutUIABeforeMs *int64) error
 }
 
 type CrossSigningSigs interface {

@@ -37,8 +37,13 @@ var KeyTypeIntToPurpose = map[int16]fclient.CrossSigningKeyPurpose{
 	3: fclient.CrossSigningKeyPurposeUserSigning,
 }
 
+type CrossSigningKey struct {
+	UpdatableWithoutUIABeforeMs *int64
+	KeyData spec.Base64Bytes
+}
+
 // Map of purpose -> public key
-type CrossSigningKeyMap map[fclient.CrossSigningKeyPurpose]spec.Base64Bytes
+type CrossSigningKeyMap map[fclient.CrossSigningKeyPurpose]CrossSigningKey
 
 // Map of user ID -> key ID -> signature
 type CrossSigningSigMap map[string]map[gomatrixserverlib.KeyID]spec.Base64Bytes

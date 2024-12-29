@@ -21,6 +21,7 @@ import (
 	"golang.org/x/exp/constraints"
 
 	clientapi "github.com/element-hq/dendrite/clientapi/api"
+	clienthttputil "github.com/element-hq/dendrite/clientapi/httputil"
 	"github.com/element-hq/dendrite/internal/httputil"
 	roomserverAPI "github.com/element-hq/dendrite/roomserver/api"
 	"github.com/element-hq/dendrite/setup/config"
@@ -514,6 +515,166 @@ func AdminCheckUsernameAvailable(
 	return util.JSONResponse{
 		Code: http.StatusOK,
 		JSON: map[string]bool{"available": rs.Available},
+	}
+}
+
+func AdminHandleUserDeviceByUserID(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+) util.JSONResponse {
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, ok := vars["userID"]
+	if !ok {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.MissingParam("Expecting user ID."),
+		}
+	}
+
+	logger := util.GetLogger(req.Context())
+
+	switch req.Method {
+	case http.MethodPost:
+		local, domain, err := gomatrixserverlib.SplitID('@', userID)
+		if err != nil {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: spec.InvalidParam(userID),
+			}
+		}
+		var payload struct {
+			DeviceID string `json:"device_id"`
+		}
+		if resErr := clienthttputil.UnmarshalJSONRequest(req, &payload); resErr != nil {
+			return *resErr
+		}
+
+		var rs userapi.PerformDeviceCreationResponse
+		if err := userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
+			Localpart:          local,
+			ServerName:         domain,
+			DeviceID:           &payload.DeviceID,
+			IPAddr:             "",
+			UserAgent:          req.UserAgent(),
+			NoDeviceListUpdate: false,
+			FromRegistration:   false,
+		}, &rs); err != nil {
+			logger.WithError(err).Debug("PerformDeviceCreation failed")
+			return util.MessageResponse(http.StatusBadRequest, err.Error())
+		}
+
+		logger.WithError(err).Debug("PerformDeviceCreation succeeded")
+		return util.JSONResponse{
+			Code: http.StatusCreated,
+			JSON: struct{}{},
+		}
+	case http.MethodGet:
+		var res userapi.QueryDevicesResponse
+		if err := userAPI.QueryDevices(req.Context(), &userapi.QueryDevicesRequest{UserID: userID}, &res); err != nil {
+			return util.MessageResponse(http.StatusBadRequest, err.Error())
+		}
+
+		jsonDevices := make([]deviceJSON, 0, len(res.Devices))
+		for i := range res.Devices {
+			d := &res.Devices[i]
+			jsonDevices = append(jsonDevices, deviceJSON{
+				DeviceID:    d.ID,
+				DisplayName: d.DisplayName,
+				LastSeenIP:  d.LastSeenIP,
+				LastSeenTS:  d.LastSeenTS,
+			})
+		}
+
+		return util.JSONResponse{
+			Code: http.StatusOK,
+			JSON: struct {
+				Devices []deviceJSON `json:"devices"`
+				Total   int          `json:"total"`
+			}{
+				Devices: jsonDevices,
+				Total:   len(res.Devices),
+			},
+		}
+	default:
+		return util.JSONResponse{
+			Code: http.StatusMethodNotAllowed,
+			JSON: struct{}{},
+		}
+	}
+
+}
+
+type adminExternalID struct {
+	AuthProvider string `json:"auth_provider"`
+	ExternalID   string `json:"external_id"`
+}
+
+type adminCreateOrModifyAccountRequest struct {
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url"`
+	// TODO: the following fields are not used here, but they are used in Synapse. Probably we should reproduce the logic of the
+	// endpoint fully compatible.
+	// Password      string            `json:"password"`
+	// LogoutDevices bool              `json:"logout_devices"`
+	// Threepids     json.RawMessage   `json:"threepids"`
+	// ExternalIDs   []adminExternalID `json:"external_ids"`
+	// Admin         bool              `json:"admin"`
+	// Deactivated   bool              `json:"deactivated"`
+	// Locked        bool              `json:"locked"`
+}
+
+func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI) util.JSONResponse {
+	logger := util.GetLogger(req.Context())
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, ok := vars["userID"]
+	if !ok {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.MissingParam("Expecting user ID."),
+		}
+	}
+	local, domain, err := gomatrixserverlib.SplitID('@', userID)
+	if err != nil {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam(userID),
+		}
+	}
+	var r adminCreateOrModifyAccountRequest
+	if resErr := clienthttputil.UnmarshalJSONRequest(req, &r); resErr != nil {
+		logger.Debugf("UnmarshalJSONRequest failed: %+v", *resErr)
+		return *resErr
+	}
+	logger.Debugf("adminCreateOrModifyAccountRequest is: %+v", r)
+	statusCode := http.StatusOK
+	{
+		var res userapi.PerformAccountCreationResponse
+		err = userAPI.PerformAccountCreation(req.Context(), &userapi.PerformAccountCreationRequest{
+			AccountType: userapi.AccountTypeUser,
+			Localpart:   local,
+			ServerName:  domain,
+			OnConflict:  api.ConflictUpdate,
+			AvatarURL:   r.AvatarURL,
+			DisplayName: r.DisplayName,
+		}, &res)
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Debugln("Failed creating account")
+			return util.MessageResponse(http.StatusBadRequest, err.Error())
+		}
+		if res.AccountCreated {
+			statusCode = http.StatusCreated
+		}
+	}
+
+	return util.JSONResponse{
+		Code: statusCode,
+		JSON: nil,
 	}
 }
 

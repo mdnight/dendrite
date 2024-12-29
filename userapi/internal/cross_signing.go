@@ -114,7 +114,9 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeMaster] = req.MasterKey
 		for _, key := range req.MasterKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeMaster] = key
+			toStore[fclient.CrossSigningKeyPurposeMaster] = types.CrossSigningKey{
+				KeyData: key,
+			}
 		}
 		hasMasterKey = true
 	}
@@ -130,7 +132,9 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeSelfSigning] = req.SelfSigningKey
 		for _, key := range req.SelfSigningKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeSelfSigning] = key
+			toStore[fclient.CrossSigningKeyPurposeSelfSigning] = types.CrossSigningKey{
+				KeyData: key,
+			}
 		}
 	}
 
@@ -145,7 +149,9 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeUserSigning] = req.UserSigningKey
 		for _, key := range req.UserSigningKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeUserSigning] = key
+			toStore[fclient.CrossSigningKeyPurposeUserSigning] = types.CrossSigningKey{
+				KeyData: key,
+			}
 		}
 	}
 
@@ -198,7 +204,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 			changed = true
 			break
 		}
-		if !bytes.Equal(old, new) {
+		if !bytes.Equal(old.KeyData, new.KeyData) {
 			// One of the existing keys for a purpose we already knew about has
 			// changed.
 			changed = true
@@ -210,7 +216,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 	}
 
 	// Store the keys.
-	if err := a.KeyDatabase.StoreCrossSigningKeysForUser(ctx, req.UserID, toStore); err != nil {
+	if err := a.KeyDatabase.StoreCrossSigningKeysForUser(ctx, req.UserID, toStore, nil); err != nil {
 		res.Error = &api.KeyError{
 			Err: fmt.Sprintf("a.DB.StoreCrossSigningKeysForUser: %s", err),
 		}

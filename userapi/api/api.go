@@ -32,6 +32,8 @@ type UserInternalAPI interface {
 
 	QuerySearchProfilesAPI // used by p2p demos
 	QueryAccountByLocalpart(ctx context.Context, req *QueryAccountByLocalpartRequest, res *QueryAccountByLocalpartResponse) (err error)
+	QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, req *QueryLocalpartExternalIDRequest, res *QueryLocalpartExternalIDResponse) (err error)
+	PerformLocalpartExternalUserIDCreation(ctx context.Context, req *PerformLocalpartExternalUserIDCreationRequest) (err error)
 }
 
 // api functions required by the appservice api
@@ -129,6 +131,7 @@ type QuerySearchProfilesAPI interface {
 	QuerySearchProfiles(ctx context.Context, req *QuerySearchProfilesRequest, res *QuerySearchProfilesResponse) error
 }
 
+// FIXME: typo in Acccess
 // common function for creating authenticated endpoints (used in client/media/sync api)
 type QueryAcccessTokenAPI interface {
 	QueryAccessToken(ctx context.Context, req *QueryAccessTokenRequest, res *QueryAccessTokenResponse) error
@@ -315,6 +318,9 @@ type PerformAccountCreationRequest struct {
 	AccountType AccountType     // Required: whether this is a guest or user account
 	Localpart   string          // Required: The localpart for this account. Ignored if account type is guest.
 	ServerName  spec.ServerName // optional: if not specified, default server name used instead
+
+	DisplayName string // optional: this is populated only by MAS. In the legacy flow it's not used
+	AvatarURL   string // optional: this is populated only by MAS. In the legacy flow it's not used
 
 	AppServiceID string // optional: the application service ID (not user ID) creating this account, if any.
 	Password     string // optional: if missing then this account will be a passwordless account
@@ -653,10 +659,26 @@ type QueryAccountByLocalpartResponse struct {
 	Account *Account
 }
 
+type QueryLocalpartExternalIDRequest struct {
+	ExternalID string
+	AuthProvider string
+}
+
+type QueryLocalpartExternalIDResponse struct {
+	LocalpartExternalID *LocalpartExternalID
+}
+
+type PerformLocalpartExternalUserIDCreationRequest struct {
+	Localpart string
+	ExternalID string
+	AuthProvider string
+}
+
 // API functions required by the clientapi
 type ClientKeyAPI interface {
 	UploadDeviceKeysAPI
 	QueryKeys(ctx context.Context, req *QueryKeysRequest, res *QueryKeysResponse)
+	QueryMasterKeys(ctx context.Context, req *QueryMasterKeysRequest, res *QueryMasterKeysResponse)
 	PerformUploadKeys(ctx context.Context, req *PerformUploadKeysRequest, res *PerformUploadKeysResponse) error
 
 	PerformUploadDeviceSignatures(ctx context.Context, req *PerformUploadDeviceSignaturesRequest, res *PerformUploadDeviceSignaturesResponse)
@@ -914,6 +936,16 @@ type QueryKeysResponse struct {
 	MasterKeys      map[string]fclient.CrossSigningKey
 	SelfSigningKeys map[string]fclient.CrossSigningKey
 	UserSigningKeys map[string]fclient.CrossSigningKey
+	// Set if there was a fatal error processing this query
+	Error *KeyError
+}
+
+type QueryMasterKeysRequest struct {
+	UserID string
+}
+
+type QueryMasterKeysResponse struct {
+	Key *types.CrossSigningKey
 	// Set if there was a fatal error processing this query
 	Error *KeyError
 }

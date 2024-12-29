@@ -8,6 +8,8 @@ package routing
 
 import (
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/element-hq/dendrite/clientapi/auth"
 	"github.com/element-hq/dendrite/clientapi/auth/authtypes"
@@ -39,28 +41,83 @@ func UploadCrossSigningDeviceKeys(
 	if sessionID == "" {
 		sessionID = util.RandomString(sessionIDLength)
 	}
-	if uploadReq.Auth.Type != authtypes.LoginTypePassword {
-		return util.JSONResponse{
-			Code: http.StatusUnauthorized,
-			JSON: newUserInteractiveResponse(
-				sessionID,
-				[]authtypes.Flow{
-					{
-						Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
-					},
-				},
-				nil,
-			),
+
+	isCrossSigningSetup := false
+	masterKeyUpdatableWithoutUIA := false
+	{
+		var keysResp api.QueryMasterKeysResponse
+		keyserverAPI.QueryMasterKeys(req.Context(), &api.QueryMasterKeysRequest{UserID: device.UserID}, &keysResp)
+		if err := keysResp.Error; err != nil {
+			return convertKeyError(err)
+		}
+		if k := keysResp.Key; k != nil {
+			isCrossSigningSetup = true
+			if k.UpdatableWithoutUIABeforeMs != nil {
+				masterKeyUpdatableWithoutUIA = time.Now().UnixMilli() < *k.UpdatableWithoutUIABeforeMs
+			}
 		}
 	}
-	typePassword := auth.LoginTypePassword{
-		GetAccountByPassword: accountAPI.QueryAccountByPassword,
-		Config:               cfg,
+
+	if isCrossSigningSetup {
+		// With MSC3861, UIA is not possible. Instead, the auth service has to explicitly mark the master key as replaceable.
+		if cfg.MSCs.MSC3861Enabled() {
+			if !masterKeyUpdatableWithoutUIA {
+				url := ""
+				if m := cfg.MSCs.MSC3861; m.AccountManagementURL != "" {
+					url = strings.Join([]string{m.AccountManagementURL, "?action=", authtypes.LoginTypeCrossSigningReset}, "")
+				} else {
+					url = m.Issuer
+				}
+				return util.JSONResponse{
+					Code: http.StatusUnauthorized,
+					JSON: newUserInteractiveResponse(
+						"dummy",
+						[]authtypes.Flow{
+							{
+								Stages: []authtypes.LoginType{authtypes.LoginTypeCrossSigningReset},
+							},
+						},
+						map[string]interface{}{
+							authtypes.LoginTypeCrossSigningReset: map[string]string{
+								"url": url,
+							},
+						},
+						strings.Join([]string{
+							"To reset your end-to-end encryption cross-signing, identity, you first need to approve it at",
+							url,
+							"and then try again.",
+						}, " "),
+					),
+				}
+			}
+			// XXX: is it necessary?
+			sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypeCrossSigningReset)
+		} else {
+			if uploadReq.Auth.Type != authtypes.LoginTypePassword {
+				return util.JSONResponse{
+					Code: http.StatusUnauthorized,
+					JSON: newUserInteractiveResponse(
+						sessionID,
+						[]authtypes.Flow{
+							{
+								Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
+							},
+						},
+						nil,
+						"",
+					),
+				}
+			}
+			typePassword := auth.LoginTypePassword{
+				GetAccountByPassword: accountAPI.QueryAccountByPassword,
+				Config:               cfg,
+			}
+			if _, authErr := typePassword.Login(req.Context(), &uploadReq.Auth.PasswordRequest); authErr != nil {
+				return *authErr
+			}
+			sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
+		}
 	}
-	if _, authErr := typePassword.Login(req.Context(), &uploadReq.Auth.PasswordRequest); authErr != nil {
-		return *authErr
-	}
-	sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
 
 	uploadReq.UserID = device.UserID
 	keyserverAPI.PerformUploadDeviceKeys(req.Context(), &uploadReq.PerformUploadDeviceKeysRequest, uploadRes)
@@ -108,7 +165,17 @@ func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.Clie
 	keyserverAPI.PerformUploadDeviceSignatures(req.Context(), uploadReq, uploadRes)
 
 	if err := uploadRes.Error; err != nil {
-		switch {
+		return convertKeyError(err)
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
+}
+
+func convertKeyError(err *api.KeyError) util.JSONResponse {
+	switch {
 		case err.IsInvalidSignature:
 			return util.JSONResponse{
 				Code: http.StatusBadRequest,
@@ -130,10 +197,4 @@ func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.Clie
 				JSON: spec.Unknown(err.Error()),
 			}
 		}
-	}
-
-	return util.JSONResponse{
-		Code: http.StatusOK,
-		JSON: struct{}{},
-	}
 }

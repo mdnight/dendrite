@@ -1,15 +1,18 @@
 package config
 
+import "slices"
+
 type MSCs struct {
 	Matrix *Global `yaml:"-"`
 
 	// The MSCs to enable. Supported MSCs include:
+	// 'msc3861': Delegate auth to an OIDC provider. This line MUST always go first if the msc is used https://github.com/matrix-org/matrix-spec-proposals/pull/3861
 	// 'msc2444': Peeking over federation - https://github.com/matrix-org/matrix-doc/pull/2444
 	// 'msc2753': Peeking via /sync - https://github.com/matrix-org/matrix-doc/pull/2753
 	// 'msc2836': Threading - https://github.com/matrix-org/matrix-doc/pull/2836
-	// 'msc3861': Delegate auth to an OIDC provider https://github.com/matrix-org/matrix-spec-proposals/pull/3861
 	MSCs []string `yaml:"mscs"`
 
+	// MSC3861 contains config related to the experimental feature MSC3861. It takes effect only if 'msc3861' is included in 'MSCs' array
 	MSC3861 *MSC3861 `yaml:"msc3861,omitempty"`
 
 	Database DatabaseOptions `yaml:"database,omitempty"`
@@ -40,6 +43,10 @@ func (c *MSCs) Verify(configErrs *ConfigErrors) {
 	if m := c.MSC3861; m != nil {
 		m.Verify(configErrs)
 	}
+}
+
+func (c *MSCs) MSC3861Enabled() bool {
+	return slices.Contains(c.MSCs, "msc3861") && c.MSC3861 != nil && c.MSC3861.Enabled
 }
 
 type MSC3861 struct {

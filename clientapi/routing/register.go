@@ -234,6 +234,7 @@ type userInteractiveResponse struct {
 	Completed []authtypes.LoginType  `json:"completed"`
 	Params    map[string]interface{} `json:"params"`
 	Session   string                 `json:"session"`
+	Msg       string                 `json:"msg,omitempty"`
 }
 
 // newUserInteractiveResponse will return a struct to be sent back to the client
@@ -242,9 +243,10 @@ func newUserInteractiveResponse(
 	sessionID string,
 	fs []authtypes.Flow,
 	params map[string]interface{},
+	msg string,
 ) userInteractiveResponse {
 	return userInteractiveResponse{
-		fs, sessions.getCompletedStages(sessionID), params, sessionID,
+		fs, sessions.getCompletedStages(sessionID), params, sessionID, msg,
 	}
 }
 
@@ -817,7 +819,7 @@ func checkAndCompleteFlow(
 	return util.JSONResponse{
 		Code: http.StatusUnauthorized,
 		JSON: newUserInteractiveResponse(sessionID,
-			cfg.Derived.Registration.Flows, cfg.Derived.Registration.Params),
+			cfg.Derived.Registration.Flows, cfg.Derived.Registration.Params, ""),
 	}
 }
 

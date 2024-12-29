@@ -226,9 +226,10 @@ type KeyDatabase interface {
 
 	CrossSigningKeysForUser(ctx context.Context, userID string) (map[fclient.CrossSigningKeyPurpose]fclient.CrossSigningKey, error)
 	CrossSigningKeysDataForUser(ctx context.Context, userID string) (types.CrossSigningKeyMap, error)
+	CrossSigningKeysDataForUserAndKeyType(ctx context.Context, userID string, keyType fclient.CrossSigningKeyPurpose) (types.CrossSigningKeyMap, error)
 	CrossSigningSigsForTarget(ctx context.Context, originUserID, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (types.CrossSigningSigMap, error)
 
-	StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap) error
+	StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap, updatableWithoutUIABeforeMs *int64) error
 	StoreCrossSigningSigsForTarget(ctx context.Context, originUserID string, originKeyID gomatrixserverlib.KeyID, targetUserID string, targetKeyID gomatrixserverlib.KeyID, signature spec.Base64Bytes) error
 
 	DeleteStaleDeviceLists(

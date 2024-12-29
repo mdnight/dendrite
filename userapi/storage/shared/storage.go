@@ -1101,12 +1101,12 @@ func (d *KeyDatabase) CrossSigningKeysForUser(ctx context.Context, userID string
 	}
 	results := map[fclient.CrossSigningKeyPurpose]fclient.CrossSigningKey{}
 	for purpose, key := range keyMap {
-		keyID := gomatrixserverlib.KeyID("ed25519:" + key.Encode())
+		keyID := gomatrixserverlib.KeyID("ed25519:" + key.KeyData.Encode())
 		result := fclient.CrossSigningKey{
 			UserID: userID,
 			Usage:  []fclient.CrossSigningKeyPurpose{purpose},
 			Keys: map[gomatrixserverlib.KeyID]spec.Base64Bytes{
-				keyID: key,
+				keyID: key.KeyData,
 			},
 		}
 		sigMap, err := d.CrossSigningSigsTable.SelectCrossSigningSigsForTarget(ctx, nil, userID, userID, keyID)
@@ -1137,16 +1137,21 @@ func (d *KeyDatabase) CrossSigningKeysDataForUser(ctx context.Context, userID st
 	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, nil, userID)
 }
 
+// CrossSigningKeysForUserAndKeyType returns the latest known cross-signing keys for a user and key type, if any.
+func (d *KeyDatabase) CrossSigningKeysDataForUserAndKeyType(ctx context.Context, userID string, keyType fclient.CrossSigningKeyPurpose) (types.CrossSigningKeyMap, error) {
+	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUserAndKeyType(ctx, nil, userID, keyType)
+}
+
 // CrossSigningSigsForTarget returns the signatures for a given user's key ID, if any.
 func (d *KeyDatabase) CrossSigningSigsForTarget(ctx context.Context, originUserID, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (types.CrossSigningSigMap, error) {
 	return d.CrossSigningSigsTable.SelectCrossSigningSigsForTarget(ctx, nil, originUserID, targetUserID, targetKeyID)
 }
 
 // StoreCrossSigningKeysForUser stores the latest known cross-signing keys for a user.
-func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap) error {
+func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap, updatableWithoutUIABeforeMs *int64) error {
 	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
-		for keyType, keyData := range keyMap {
-			if err := d.CrossSigningKeysTable.UpsertCrossSigningKeysForUser(ctx, txn, userID, keyType, keyData); err != nil {
+		for keyType, key := range keyMap {
+			if err := d.CrossSigningKeysTable.UpsertCrossSigningKeysForUser(ctx, txn, userID, keyType, key.KeyData, key.UpdatableWithoutUIABeforeMs); err != nil {
 				return fmt.Errorf("d.CrossSigningKeysTable.InsertCrossSigningKeysForUser: %w", err)
 			}
 		}
