@@ -102,8 +102,8 @@ func (m *MSC3861UserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Dev
 				}
 			case codeInvalidClientToken:
 				return nil, &util.JSONResponse{
-					Code: http.StatusInternalServerError,
-					JSON: spec.Forbidden(e.Error()),
+					Code: http.StatusUnauthorized,
+					JSON: spec.UnknownToken(e.Error()),
 				}
 			case codeAuthError:
 				return nil, &util.JSONResponse{
