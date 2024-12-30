@@ -127,7 +127,7 @@ func (m *MSC3861UserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Dev
 
 	// Do not record requests from MAS using the virtual `__oidc_admin` user.
 	if token != m.cfg.AdminToken {
-		// TODO: not sure which exact data we should record here. See the link for reference
+		// XXX: not sure which exact data we should record here. See the link for reference
 		// https://github.com/element-hq/synapse/blob/develop/synapse/api/auth/base.py#L365
 	}
 
@@ -156,7 +156,6 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		// XXX: This is a temporary solution so that the admin API can be called by
 		// the OIDC provider. This will be removed once we have OIDC client
 		// credentials grant support in matrix-authentication-service.
-		logger.Info("Admin token used")
 		// XXX: that user doesn't exist and won't be provisioned.
 		adminUser, err := createUserID("__oidc_admin", m.serverName)
 		if err != nil {
@@ -165,7 +164,7 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		return &requester{
 			UserID: adminUser,
 			Scope:  []string{"urn:synapse:admin:*"},
-			Device: &api.Device{UserID: adminUser.Local(), AccountType: api.AccountTypeAdmin},
+			Device: &api.Device{UserID: adminUser.Local(), AccountType: api.AccountTypeOIDCService},
 		}, nil
 	}
 

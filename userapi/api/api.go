@@ -529,6 +529,8 @@ const (
 	AccountTypeAdmin AccountType = 3
 	// AccountTypeAppService indicates this is an appservice account
 	AccountTypeAppService AccountType = 4
+	// AccountTypeOIDC indicates this is an account belonging to Matrix Authentication Service (MAS)
+	AccountTypeOIDCService AccountType = 5
 )
 
 type QueryPushersRequest struct {
