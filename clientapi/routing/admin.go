@@ -21,8 +21,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/constraints"
 
+	appserviceAPI "github.com/element-hq/dendrite/appservice/api"
 	clientapi "github.com/element-hq/dendrite/clientapi/api"
 	clienthttputil "github.com/element-hq/dendrite/clientapi/httputil"
+	"github.com/element-hq/dendrite/clientapi/userutil"
 	"github.com/element-hq/dendrite/internal/httputil"
 	roomserverAPI "github.com/element-hq/dendrite/roomserver/api"
 	"github.com/element-hq/dendrite/setup/config"
@@ -728,6 +730,76 @@ func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI
 	return util.JSONResponse{
 		Code: statusCode,
 		JSON: nil,
+	}
+}
+
+func AdminRetrieveAccount(req *http.Request, cfg *config.ClientAPI, userAPI userapi.ClientUserAPI) util.JSONResponse {
+	logger := util.GetLogger(req.Context())
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, ok := vars["userID"]
+	if !ok {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.MissingParam("Expecting user ID."),
+		}
+	}
+	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
+	if err != nil {
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam(err.Error()),
+		}
+	}
+
+	body := struct {
+		DisplayName string `json:"display_name"`
+		AvatarURL   string `json:"avatar_url"`
+		Deactivated bool   `json:"deactivated"`
+	}{}
+
+	{
+		var rs api.QueryAccountByLocalpartResponse
+		err := userAPI.QueryAccountByLocalpart(req.Context(), &api.QueryAccountByLocalpartRequest{Localpart: local, ServerName: domain}, &rs)
+		if err == sql.ErrNoRows {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.NotFound(fmt.Sprintf("User '%s' not found", userID)),
+			}
+		} else if err != nil {
+			logger.WithError(err).Error("userAPI.QueryAccountByLocalpart")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.Unknown(err.Error()),
+			}
+		}
+		body.Deactivated = rs.Account.Deactivated
+	}
+
+	{
+		profile, err := userAPI.QueryProfile(req.Context(), userID)
+		if err != nil {
+			if err == appserviceAPI.ErrProfileNotExists {
+				return util.JSONResponse{
+					Code: http.StatusNotFound,
+					JSON: spec.NotFound(err.Error()),
+				}
+			} else if err != nil {
+				return util.JSONResponse{
+					Code: http.StatusInternalServerError,
+					JSON: spec.Unknown(err.Error()),
+				}
+			}
+		}
+		body.AvatarURL = profile.AvatarURL
+		body.DisplayName = profile.DisplayName
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: body,
 	}
 }
 

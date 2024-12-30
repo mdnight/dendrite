@@ -31,7 +31,6 @@ type UserInternalAPI interface {
 	FederationUserAPI
 
 	QuerySearchProfilesAPI // used by p2p demos
-	QueryAccountByLocalpart(ctx context.Context, req *QueryAccountByLocalpartRequest, res *QueryAccountByLocalpartResponse) (err error)
 	QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, req *QueryLocalpartExternalIDRequest, res *QueryLocalpartExternalIDResponse) (err error)
 	PerformLocalpartExternalUserIDCreation(ctx context.Context, req *PerformLocalpartExternalUserIDCreationRequest) (err error)
 }
@@ -89,6 +88,7 @@ type ClientUserAPI interface {
 	QueryPushers(ctx context.Context, req *QueryPushersRequest, res *QueryPushersResponse) error
 	QueryPushRules(ctx context.Context, userID string) (*pushrules.AccountRuleSets, error)
 	QueryAccountAvailability(ctx context.Context, req *QueryAccountAvailabilityRequest, res *QueryAccountAvailabilityResponse) error
+	QueryAccountByLocalpart(ctx context.Context, req *QueryAccountByLocalpartRequest, res *QueryAccountByLocalpartResponse) (err error)
 	PerformAdminCreateRegistrationToken(ctx context.Context, registrationToken *clientapi.RegistrationToken) (bool, error)
 	PerformAdminListRegistrationTokens(ctx context.Context, returnAll bool, valid bool) ([]clientapi.RegistrationToken, error)
 	PerformAdminGetRegistrationToken(ctx context.Context, tokenString string) (*clientapi.RegistrationToken, error)
@@ -461,6 +461,7 @@ type Account struct {
 	ServerName   spec.ServerName
 	AppServiceID string
 	AccountType  AccountType
+	Deactivated  bool
 	// TODO: Associations (e.g. with application services)
 }
 
@@ -660,7 +661,7 @@ type QueryAccountByLocalpartResponse struct {
 }
 
 type QueryLocalpartExternalIDRequest struct {
-	ExternalID string
+	ExternalID   string
 	AuthProvider string
 }
 
@@ -669,8 +670,8 @@ type QueryLocalpartExternalIDResponse struct {
 }
 
 type PerformLocalpartExternalUserIDCreationRequest struct {
-	Localpart string
-	ExternalID string
+	Localpart    string
+	ExternalID   string
 	AuthProvider string
 }
 
@@ -914,7 +915,7 @@ type PerformUploadDeviceKeysResponse struct {
 }
 
 type PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest struct {
-	UserID string
+	UserID   string
 	Duration time.Duration
 }
 
