@@ -760,42 +760,38 @@ func AdminRetrieveAccount(req *http.Request, cfg *config.ClientAPI, userAPI user
 		Deactivated bool   `json:"deactivated"`
 	}{}
 
-	{
-		var rs api.QueryAccountByLocalpartResponse
-		err := userAPI.QueryAccountByLocalpart(req.Context(), &api.QueryAccountByLocalpartRequest{Localpart: local, ServerName: domain}, &rs)
-		if err == sql.ErrNoRows {
+	var rs api.QueryAccountByLocalpartResponse
+	err = userAPI.QueryAccountByLocalpart(req.Context(), &api.QueryAccountByLocalpartRequest{Localpart: local, ServerName: domain}, &rs)
+	if err == sql.ErrNoRows {
+		return util.JSONResponse{
+			Code: http.StatusNotFound,
+			JSON: spec.NotFound(fmt.Sprintf("User '%s' not found", userID)),
+		}
+	} else if err != nil {
+		logger.WithError(err).Error("userAPI.QueryAccountByLocalpart")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.Unknown(err.Error()),
+		}
+	}
+	body.Deactivated = rs.Account.Deactivated
+
+	profile, err := userAPI.QueryProfile(req.Context(), userID)
+	if err != nil {
+		if err == appserviceAPI.ErrProfileNotExists {
 			return util.JSONResponse{
 				Code: http.StatusNotFound,
-				JSON: spec.NotFound(fmt.Sprintf("User '%s' not found", userID)),
+				JSON: spec.NotFound(err.Error()),
 			}
 		} else if err != nil {
-			logger.WithError(err).Error("userAPI.QueryAccountByLocalpart")
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,
 				JSON: spec.Unknown(err.Error()),
 			}
 		}
-		body.Deactivated = rs.Account.Deactivated
 	}
-
-	{
-		profile, err := userAPI.QueryProfile(req.Context(), userID)
-		if err != nil {
-			if err == appserviceAPI.ErrProfileNotExists {
-				return util.JSONResponse{
-					Code: http.StatusNotFound,
-					JSON: spec.NotFound(err.Error()),
-				}
-			} else if err != nil {
-				return util.JSONResponse{
-					Code: http.StatusInternalServerError,
-					JSON: spec.Unknown(err.Error()),
-				}
-			}
-		}
-		body.AvatarURL = profile.AvatarURL
-		body.DisplayName = profile.DisplayName
-	}
+	body.AvatarURL = profile.AvatarURL
+	body.DisplayName = profile.DisplayName
 
 	return util.JSONResponse{
 		Code: http.StatusOK,
