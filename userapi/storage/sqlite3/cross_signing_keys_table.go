@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/element-hq/dendrite/internal"
 	"github.com/element-hq/dendrite/internal/sqlutil"
@@ -41,11 +42,17 @@ const upsertCrossSigningKeysForUserSQL = "" +
 	"INSERT OR REPLACE INTO keyserver_cross_signing_keys (user_id, key_type, key_data, updatable_without_uia_before_ms)" +
 	" VALUES($1, $2, $3, $4)"
 
+const updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL = "" +
+	"UPDATE keyserver_cross_signing_keys" +
+	" SET updatable_without_uia_before_ms = $3" +
+	" WHERE user_id = $1 AND key_type = $2"
+
 type crossSigningKeysStatements struct {
-	db                                          *sql.DB
-	selectCrossSigningKeysForUserStmt           *sql.Stmt
-	selectCrossSigningKeysForUserAndKeyTypeStmt *sql.Stmt
-	upsertCrossSigningKeysForUserStmt           *sql.Stmt
+	db                                                        *sql.DB
+	selectCrossSigningKeysForUserStmt                         *sql.Stmt
+	selectCrossSigningKeysForUserAndKeyTypeStmt               *sql.Stmt
+	upsertCrossSigningKeysForUserStmt                         *sql.Stmt
+	updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt *sql.Stmt
 }
 
 func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error) {
@@ -60,6 +67,7 @@ func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error)
 		{&s.selectCrossSigningKeysForUserStmt, selectCrossSigningKeysForUserSQL},
 		{&s.selectCrossSigningKeysForUserAndKeyTypeStmt, selectCrossSigningKeysForUserAndKeyTypeSQL},
 		{&s.upsertCrossSigningKeysForUserStmt, upsertCrossSigningKeysForUserSQL},
+		{&s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt, updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL},
 	}.Prepare(db)
 }
 
@@ -136,4 +144,17 @@ func (s *crossSigningKeysStatements) UpsertCrossSigningKeysForUser(
 		return fmt.Errorf("s.upsertCrossSigningKeysForUserStmt: %w", err)
 	}
 	return nil
+}
+
+func (s *crossSigningKeysStatements) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, txn *sql.Tx, userID string, duration time.Duration) (int64, error) {
+	keyTypeInt, _ := types.KeyTypePurposeToInt[fclient.CrossSigningKeyPurposeMaster]
+	ts := time.Now().Add(duration).UnixMilli()
+	result, err := sqlutil.TxStmt(txn, s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt).ExecContext(ctx, userID, keyTypeInt, ts)
+	if err != nil {
+		return -1, err
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return -1, sql.ErrNoRows
+	}
+	return ts, nil
 }

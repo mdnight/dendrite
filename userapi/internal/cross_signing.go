@@ -96,6 +96,16 @@ func sanityCheckKey(key fclient.CrossSigningKey, userID string, purpose fclient.
 	return nil
 }
 
+func (a *UserInternalAPI) PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(
+	ctx context.Context,
+	req *api.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest,
+	res *api.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse,
+) error {
+	var err error
+	res.Timestamp, err = a.KeyDatabase.UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx, req.UserID, req.Duration)
+	return err
+}
+
 // nolint:gocyclo
 func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.PerformUploadDeviceKeysRequest, res *api.PerformUploadDeviceKeysResponse) {
 	// Find the keys to store.

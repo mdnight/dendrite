@@ -352,6 +352,11 @@ func Setup(
 			httputil.MakeServiceAdminAPI("admin_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminHandleUserDeviceByUserID(r, userAPI)
 			})).Methods(http.MethodPost, http.MethodGet)
+
+		synapseAdminRouter.Handle("/admin/v1/users/{userID}/_allow_cross_signing_replacement_without_uia",
+			httputil.MakeServiceAdminAPI("admin_allow_cross_signing_replacement_without_uia", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminAllowCrossSigningReplacementWithoutUIA(r, userAPI)
+			})).Methods(http.MethodPost)
 	}
 
 	if mscCfg.Enabled("msc2753") {

@@ -680,6 +680,11 @@ type ClientKeyAPI interface {
 	QueryKeys(ctx context.Context, req *QueryKeysRequest, res *QueryKeysResponse)
 	QueryMasterKeys(ctx context.Context, req *QueryMasterKeysRequest, res *QueryMasterKeysResponse)
 	PerformUploadKeys(ctx context.Context, req *PerformUploadKeysRequest, res *PerformUploadKeysResponse) error
+	PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(
+		ctx context.Context,
+		req *PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest,
+		res *PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse,
+	) error
 
 	PerformUploadDeviceSignatures(ctx context.Context, req *PerformUploadDeviceSignaturesRequest, res *PerformUploadDeviceSignaturesResponse)
 	// PerformClaimKeys claims one-time keys for use in pre-key messages
@@ -906,6 +911,15 @@ type PerformUploadDeviceKeysRequest struct {
 
 type PerformUploadDeviceKeysResponse struct {
 	Error *KeyError
+}
+
+type PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest struct {
+	UserID string
+	Duration time.Duration
+}
+
+type PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse struct {
+	Timestamp int64
 }
 
 type PerformUploadDeviceSignaturesRequest struct {

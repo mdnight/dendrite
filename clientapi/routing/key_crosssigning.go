@@ -176,25 +176,25 @@ func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.Clie
 
 func convertKeyError(err *api.KeyError) util.JSONResponse {
 	switch {
-		case err.IsInvalidSignature:
-			return util.JSONResponse{
-				Code: http.StatusBadRequest,
-				JSON: spec.InvalidSignature(err.Error()),
-			}
-		case err.IsMissingParam:
-			return util.JSONResponse{
-				Code: http.StatusBadRequest,
-				JSON: spec.MissingParam(err.Error()),
-			}
-		case err.IsInvalidParam:
-			return util.JSONResponse{
-				Code: http.StatusBadRequest,
-				JSON: spec.InvalidParam(err.Error()),
-			}
-		default:
-			return util.JSONResponse{
-				Code: http.StatusBadRequest,
-				JSON: spec.Unknown(err.Error()),
-			}
+	case err.IsInvalidSignature:
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidSignature(err.Error()),
 		}
+	case err.IsMissingParam:
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.MissingParam(err.Error()),
+		}
+	case err.IsInvalidParam:
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.InvalidParam(err.Error()),
+		}
+	default:
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.Unknown(err.Error()),
+		}
+	}
 }

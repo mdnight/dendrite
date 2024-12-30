@@ -1159,7 +1159,19 @@ func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID s
 	})
 }
 
-// StoreCrossSigningSigsForTarget stores a signature for a target user ID and key/dvice.
+// UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA updates the 'updatable_without_uia_before_ms' attribute of the master cross-signing key.
+// Normally this attribute depending on its value marks the master key as replaceable without UIA.
+func (d *KeyDatabase) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, userID string, duration time.Duration) (int64, error) {
+	var ts int64
+	err :=  d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		var err error
+		ts, err = d.CrossSigningKeysTable.UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx, txn, userID, duration)
+		return err
+	})
+	return ts, err
+}
+
+// StoreCrossSigningSigsForTarget stores a signature for a target user ID and key/device.
 func (d *KeyDatabase) StoreCrossSigningSigsForTarget(
 	ctx context.Context,
 	originUserID string, originKeyID gomatrixserverlib.KeyID,

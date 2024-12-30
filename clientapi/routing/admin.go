@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,8 @@ import (
 	"github.com/element-hq/dendrite/userapi/api"
 	userapi "github.com/element-hq/dendrite/userapi/api"
 )
+
+const replacementPeriod = 10 * time.Minute
 
 var validRegistrationTokenRegex = regexp.MustCompile("^[[:ascii:][:digit:]_]*$")
 
@@ -602,6 +605,56 @@ func AdminHandleUserDeviceByUserID(
 		return util.JSONResponse{
 			Code: http.StatusMethodNotAllowed,
 			JSON: struct{}{},
+		}
+	}
+
+}
+
+func AdminAllowCrossSigningReplacementWithoutUIA(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+) util.JSONResponse {
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userIDstr, ok := vars["userID"]
+	userID, err := spec.NewUserID(userIDstr, false)
+	if !ok || err != nil {
+		return util.JSONResponse{
+			Code: http.StatusNotFound,
+			JSON: spec.MissingParam("User not found."),
+		}
+	}
+
+	switch req.Method {
+	case http.MethodPost:
+		rq := userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest{
+			UserID:   userID.String(),
+			Duration: replacementPeriod,
+		}
+		var rs userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse
+		err = userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(req.Context(), &rq, &rs)
+		if err == sql.ErrNoRows {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.MissingParam("User has no master cross-signing key"),
+			}
+		} else if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.Unknown(err.Error()),
+			}
+		}
+		return util.JSONResponse{
+			Code: http.StatusOK,
+			JSON: map[string]int64{"updatable_without_uia_before_ms": rs.Timestamp},
+		}
+	default:
+		return util.JSONResponse{
+			Code: http.StatusMethodNotAllowed,
+			JSON: spec.Unknown("Method not allowed."),
 		}
 	}
 
