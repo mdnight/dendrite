@@ -322,8 +322,6 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		logger.Debugf("PerformDeviceCreationResponse is: %+v", rs)
 	}
 
-
-
 	return &requester{
 		Device:  device,
 		UserID:  userID,
@@ -358,7 +356,7 @@ func (m *MSC3861UserVerifier) introspectToken(ctx context.Context, token string)
 	defer resp.Body.Close()
 
 	if c := resp.StatusCode; c < 200 || c >= 300 {
-		return nil, errors.New(strings.Join([]string{"The introspection endpoint returned a '", resp.Status ,"' response"}, ""))
+		return nil, errors.New(strings.Join([]string{"The introspection endpoint returned a '", resp.Status, "' response"}, ""))
 	}
 	var ir introspectionResponse
 	if err := json.NewDecoder(body).Decode(&ir); err != nil {
@@ -402,8 +400,7 @@ type OpenIDConfiguration struct {
 	AccountManagementActionsSupported          []string `json:"account_management_actions_supported"`
 }
 
-func fetchOpenIDConfiguration(httpClient *http.Client, authHostURL string) (*
-	OpenIDConfiguration, error) {
+func fetchOpenIDConfiguration(httpClient *http.Client, authHostURL string) (*OpenIDConfiguration, error) {
 	u, err := url.Parse(authHostURL)
 	if err != nil {
 		return nil, err

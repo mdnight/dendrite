@@ -1163,7 +1163,7 @@ func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID s
 // Normally this attribute depending on its value marks the master key as replaceable without UIA.
 func (d *KeyDatabase) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, userID string, duration time.Duration) (int64, error) {
 	var ts int64
-	err :=  d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+	err := d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
 		var err error
 		ts, err = d.CrossSigningKeysTable.UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx, txn, userID, duration)
 		return err

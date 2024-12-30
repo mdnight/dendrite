@@ -39,7 +39,7 @@ var KeyTypeIntToPurpose = map[int16]fclient.CrossSigningKeyPurpose{
 
 type CrossSigningKey struct {
 	UpdatableWithoutUIABeforeMs *int64
-	KeyData spec.Base64Bytes
+	KeyData                     spec.Base64Bytes
 }
 
 // Map of purpose -> public key
