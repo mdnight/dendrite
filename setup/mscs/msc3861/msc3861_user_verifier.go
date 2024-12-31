@@ -283,8 +283,6 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 			Msg:  strings.Join([]string{"Invalid device ID in scope: ", deviceID}, ""),
 		}
 	}
-	logger.Debugf("deviceID is: %s", deviceID)
-	logger.Debugf("scope is: %+v", scopes)
 
 	userDeviceExists := false
 	{
@@ -302,14 +300,13 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 			}
 		}
 	}
-	logger.Debugf("userDeviceExists is: %t", userDeviceExists)
 	if !userDeviceExists {
 		var rs api.PerformDeviceCreationResponse
 		deviceDisplayName := "OIDC-native client"
 		if err := m.userAPI.PerformDeviceCreation(ctx, &api.PerformDeviceCreationRequest{
 			Localpart:         localpart,
 			ServerName:        m.serverName,
-			AccessToken:       token,
+			AccessToken:       "",
 			DeviceID:          &deviceID,
 			DeviceDisplayName: &deviceDisplayName,
 			// TODO: Cannot add IPAddr and Useragent values here. Should we care about it here?
