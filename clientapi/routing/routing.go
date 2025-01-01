@@ -357,7 +357,7 @@ func Setup(
 
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}/devices",
 			httputil.MakeServiceAdminAPI("admin_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
-				return AdminHandleUserDeviceByUserID(r, userAPI)
+				return AdminHandleUserDeviceRetrievingCreation(r, userAPI, cfg)
 			})).Methods(http.MethodPost, http.MethodGet)
 
 		synapseAdminRouter.Handle("/admin/v1/users/{userID}/_allow_cross_signing_replacement_without_uia",

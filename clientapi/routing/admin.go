@@ -523,27 +523,27 @@ func AdminCheckUsernameAvailable(
 	}
 }
 
-func AdminHandleUserDeviceByUserID(
+func AdminHandleUserDeviceRetrievingCreation(
 	req *http.Request,
 	userAPI userapi.ClientUserAPI,
+	cfg *config.ClientAPI,
 ) util.JSONResponse {
 	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, ok := vars["userID"]
-	if !ok {
+	userID, _ := vars["userID"]
+	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
+	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,
-			JSON: spec.MissingParam("Expecting user ID."),
+			JSON: spec.InvalidParam(err.Error()),
 		}
 	}
-
 	logger := util.GetLogger(req.Context())
 
 	switch req.Method {
 	case http.MethodPost:
-		local, domain, err := gomatrixserverlib.SplitID('@', userID)
 		if err != nil {
 			return util.JSONResponse{
 				Code: http.StatusBadRequest,
@@ -557,21 +557,50 @@ func AdminHandleUserDeviceByUserID(
 			return *resErr
 		}
 
-		var rs userapi.PerformDeviceCreationResponse
-		if err := userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
-			Localpart:          local,
-			ServerName:         domain,
-			DeviceID:           &payload.DeviceID,
-			IPAddr:             "",
-			UserAgent:          req.UserAgent(),
-			NoDeviceListUpdate: false,
-			FromRegistration:   false,
-		}, &rs); err != nil {
-			logger.WithError(err).Debug("PerformDeviceCreation failed")
-			return util.MessageResponse(http.StatusBadRequest, err.Error())
+		userDeviceExists := false
+		{
+			var rs api.QueryDevicesResponse
+			if err := userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
+				logger.WithError(err).Error("QueryDevices")
+				return util.JSONResponse{
+					Code: http.StatusInternalServerError,
+					JSON: spec.InternalServerError{},
+				}
+			}
+			if !rs.UserExists {
+				return util.JSONResponse{
+					Code: http.StatusNotFound,
+					JSON: spec.NotFound("Given user ID does not exist"),
+				}
+			}
+			for i := range rs.Devices {
+				logger.Errorf("%s :: %s", rs.Devices[0].ID, payload.DeviceID)
+				if d := rs.Devices[i]; d.ID == payload.DeviceID && d.UserID == userID {
+					userDeviceExists = true
+					break
+				}
+			}
 		}
 
-		logger.WithError(err).Debug("PerformDeviceCreation succeeded")
+		if !userDeviceExists {
+			var rs userapi.PerformDeviceCreationResponse
+			if err := userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
+				Localpart:          local,
+				ServerName:         domain,
+				DeviceID:           &payload.DeviceID,
+				IPAddr:             "",
+				UserAgent:          req.UserAgent(),
+				NoDeviceListUpdate: false,
+				FromRegistration:   false,
+			}, &rs); err != nil {
+				logger.WithError(err).Error("PerformDeviceCreation")
+				return util.JSONResponse{
+					Code: http.StatusInternalServerError,
+					JSON: spec.InternalServerError{},
+				}
+			}
+			logger.WithError(err).Debug("PerformDeviceCreation succeeded")
+		}
 		return util.JSONResponse{
 			Code: http.StatusCreated,
 			JSON: struct{}{},
