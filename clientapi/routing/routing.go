@@ -356,9 +356,17 @@ func Setup(
 			})).Methods(http.MethodPut, http.MethodGet)
 
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}/devices",
-			httputil.MakeServiceAdminAPI("admin_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
-				return AdminHandleUserDeviceRetrievingCreation(r, userAPI, cfg)
+			httputil.MakeServiceAdminAPI("admin_create_retrieve_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminUserDeviceRetrieveCreate(r, userAPI, cfg)
 			})).Methods(http.MethodPost, http.MethodGet)
+		synapseAdminRouter.Handle("/admin/v2/users/{userID}/devices/{deviceID}",
+			httputil.MakeServiceAdminAPI("admin_delete_user_device", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminUserDeviceDelete(r, userAPI, cfg)
+			})).Methods(http.MethodDelete)
+		synapseAdminRouter.Handle("/admin/v2/users/{userID}/delete_devices",
+			httputil.MakeServiceAdminAPI("admin_delete_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminUserDevicesDelete(r, userAPI, cfg)
+			})).Methods(http.MethodPost)
 
 		synapseAdminRouter.Handle("/admin/v1/users/{userID}/_allow_cross_signing_replacement_without_uia",
 			httputil.MakeServiceAdminAPI("admin_allow_cross_signing_replacement_without_uia", m.AdminToken, func(r *http.Request) util.JSONResponse {

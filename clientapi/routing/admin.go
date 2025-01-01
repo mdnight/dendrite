@@ -33,9 +33,14 @@ import (
 	userapi "github.com/element-hq/dendrite/userapi/api"
 )
 
-const replacementPeriod = 10 * time.Minute
+const (
+	replacementPeriod time.Duration = 10 * time.Minute
+)
 
-var validRegistrationTokenRegex = regexp.MustCompile("^[[:ascii:][:digit:]_]*$")
+var (
+	validRegistrationTokenRegex = regexp.MustCompile("^[[:ascii:][:digit:]_]*$")
+	deviceDisplayName           = "OIDC-native client"
+)
 
 func AdminCreateNewRegistrationToken(req *http.Request, cfg *config.ClientAPI, userAPI userapi.ClientUserAPI) util.JSONResponse {
 	if !cfg.RegistrationRequiresToken {
@@ -523,7 +528,7 @@ func AdminCheckUsernameAvailable(
 	}
 }
 
-func AdminHandleUserDeviceRetrievingCreation(
+func AdminUserDeviceRetrieveCreate(
 	req *http.Request,
 	userAPI userapi.ClientUserAPI,
 	cfg *config.ClientAPI,
@@ -574,7 +579,6 @@ func AdminHandleUserDeviceRetrievingCreation(
 				}
 			}
 			for i := range rs.Devices {
-				logger.Errorf("%s :: %s", rs.Devices[0].ID, payload.DeviceID)
 				if d := rs.Devices[i]; d.ID == payload.DeviceID && d.UserID == userID {
 					userDeviceExists = true
 					break
@@ -588,6 +592,7 @@ func AdminHandleUserDeviceRetrievingCreation(
 				Localpart:          local,
 				ServerName:         domain,
 				DeviceID:           &payload.DeviceID,
+				DeviceDisplayName:  &deviceDisplayName,
 				IPAddr:             "",
 				UserAgent:          req.UserAgent(),
 				NoDeviceListUpdate: false,
@@ -638,7 +643,114 @@ func AdminHandleUserDeviceRetrievingCreation(
 			JSON: struct{}{},
 		}
 	}
+}
 
+func AdminUserDeviceDelete(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+	cfg *config.ClientAPI,
+) util.JSONResponse {
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, _ := vars["userID"]
+	deviceID, _ := vars["deviceID"]
+	logger := util.GetLogger(req.Context())
+
+	// XXX: we probably have to delete session from the sessions dict
+	// like we do in DeleteDeviceById. If so, we have to fi
+	var device *api.Device
+	{
+		var rs api.QueryDevicesResponse
+		if err := userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
+			logger.WithError(err).Error("userAPI.QueryDevices failed")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
+		}
+		if !rs.UserExists {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.NotFound("Given user ID does not exist"),
+			}
+		}
+		for i := range rs.Devices {
+			if d := rs.Devices[i]; d.ID == deviceID && d.UserID == userID {
+				device = &d
+				break
+			}
+		}
+	}
+
+	{
+		// XXX: this response struct can completely removed everywhere as it doesn't
+		// have any functional purpose
+		var res api.PerformDeviceDeletionResponse
+		if err := userAPI.PerformDeviceDeletion(req.Context(), &api.PerformDeviceDeletionRequest{
+			UserID:    device.UserID,
+			DeviceIDs: []string{device.ID},
+		}, &res); err != nil {
+			logger.WithError(err).Error("userAPI.PerformDeviceDeletion failed")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
+		}
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
+}
+
+func AdminUserDevicesDelete(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+	cfg *config.ClientAPI,
+) util.JSONResponse {
+	logger := util.GetLogger(req.Context())
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, _ := vars["userID"]
+
+	var payload struct {
+		Devices []string `json:"devices"`
+	}
+
+	defer req.Body.Close()
+	if err = json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		util.GetLogger(req.Context()).WithError(err).Error("unable to decode device deletion request")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
+	}
+
+	{
+		// XXX: this response struct can completely removed everywhere as it doesn't
+		// have any functional purpose
+		var rs api.PerformDeviceDeletionResponse
+		if err := userAPI.PerformDeviceDeletion(req.Context(), &api.PerformDeviceDeletionRequest{
+			UserID:    userID,
+			DeviceIDs: payload.Devices,
+		}, &rs); err != nil {
+			logger.WithError(err).Error("userAPI.PerformDeviceDeletion failed")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
+		}
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
 }
 
 func AdminAllowCrossSigningReplacementWithoutUIA(
