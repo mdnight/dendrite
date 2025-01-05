@@ -753,6 +753,42 @@ func AdminUserDevicesDelete(
 	}
 }
 
+func AdminDeactivateAccount(
+	req *http.Request,
+	userAPI userapi.ClientUserAPI,
+	cfg *config.ClientAPI,
+) util.JSONResponse {
+	logger := util.GetLogger(req.Context())
+	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	userID, _ := vars["userID"]
+	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
+	if err != nil {
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+
+	// TODO: "erase" field must also be processed here
+	// see https://github.com/element-hq/synapse/blob/develop/docs/admin_api/user_admin_api.md#deactivate-account
+
+	var rs api.PerformAccountDeactivationResponse
+	if err := userAPI.PerformAccountDeactivation(req.Context(), &api.PerformAccountDeactivationRequest{
+		Localpart: local, ServerName: domain,
+	}, &rs); err != nil {
+		logger.WithError(err).Error("userAPI.PerformDeviceDeletion failed")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.InternalServerError{},
+		}
+	}
+
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
+}
+
 func AdminAllowCrossSigningReplacementWithoutUIA(
 	req *http.Request,
 	userAPI userapi.ClientUserAPI,

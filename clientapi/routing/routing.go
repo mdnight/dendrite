@@ -342,7 +342,10 @@ func Setup(
 			httputil.MakeServiceAdminAPI("admin_username_available", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminCheckUsernameAvailable(r, userAPI, cfg)
 			})).Methods(http.MethodGet)
-
+		synapseAdminRouter.Handle("/admin/v1/deactivate/{userID}",
+			httputil.MakeServiceAdminAPI("admin_deactivate_user", m.AdminToken, func(r *http.Request) util.JSONResponse {
+				return AdminDeactivateAccount(r, userAPI, cfg)
+			})).Methods(http.MethodPost)
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}",
 			httputil.MakeServiceAdminAPI("admin_manage_user", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				switch r.Method {
