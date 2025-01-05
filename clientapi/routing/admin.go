@@ -814,12 +814,7 @@ func AdminAllowCrossSigningReplacementWithoutUIA(
 		}
 		var rs userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse
 		err = userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(req.Context(), &rq, &rs)
-		if err == sql.ErrNoRows {
-			return util.JSONResponse{
-				Code: http.StatusNotFound,
-				JSON: spec.MissingParam("User has no master cross-signing key"),
-			}
-		} else if err != nil {
+		if err != nil && err != sql.ErrNoRows {
 			util.GetLogger(req.Context()).WithError(err).Error("userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA")
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,
@@ -858,20 +853,14 @@ type adminCreateOrModifyAccountRequest struct {
 	// Locked        bool              `json:"locked"`
 }
 
-func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI) util.JSONResponse {
+func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI, cfg *config.ClientAPI) util.JSONResponse {
 	logger := util.GetLogger(req.Context())
 	vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, ok := vars["userID"]
-	if !ok {
-		return util.JSONResponse{
-			Code: http.StatusBadRequest,
-			JSON: spec.MissingParam("Expecting user ID."),
-		}
-	}
-	local, domain, err := gomatrixserverlib.SplitID('@', userID)
+	userID, _ := vars["userID"]
+	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
 	if err != nil {
 		return util.JSONResponse{
 			Code: http.StatusBadRequest,

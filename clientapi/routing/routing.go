@@ -352,7 +352,7 @@ func Setup(
 				case http.MethodGet:
 					return AdminRetrieveAccount(r, cfg, userAPI)
 				case http.MethodPut:
-					return AdminCreateOrModifyAccount(r, userAPI)
+					return AdminCreateOrModifyAccount(r, userAPI, cfg)
 				default:
 					return util.JSONResponse{Code: http.StatusMethodNotAllowed, JSON: nil}
 				}
