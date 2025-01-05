@@ -724,7 +724,7 @@ func AdminUserDevicesDelete(
 
 	defer req.Body.Close()
 	if err = json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		util.GetLogger(req.Context()).WithError(err).Error("unable to decode device deletion request")
+		logger.WithError(err).Error("unable to decode device deletion request")
 		return util.JSONResponse{
 			Code: http.StatusInternalServerError,
 			JSON: spec.InternalServerError{},
@@ -860,7 +860,7 @@ func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI
 			DisplayName: r.DisplayName,
 		}, &res)
 		if err != nil {
-			util.GetLogger(req.Context()).WithError(err).Debugln("Failed creating account")
+			logger.WithError(err).Debugln("Failed creating account")
 			return util.MessageResponse(http.StatusBadRequest, err.Error())
 		}
 		if res.AccountCreated {

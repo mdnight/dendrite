@@ -173,7 +173,6 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		logger.WithError(err).Error("MSC3861UserVerifier:introspectToken")
 		return nil, err
 	}
-	logger.Debugf("Introspection result: %+v", *introspectionResult)
 
 	if !introspectionResult.Active {
 		return nil, &mscError{Code: codeInvalidClientToken, Msg: "Token is not active"}
