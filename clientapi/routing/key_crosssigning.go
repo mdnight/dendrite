@@ -8,6 +8,7 @@ package routing
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/element-hq/dendrite/clientapi/httputil"
 	"github.com/element-hq/dendrite/setup/config"
 	"github.com/element-hq/dendrite/userapi/api"
+	"github.com/matrix-org/gomatrixserverlib/fclient"
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/matrix-org/util"
 )
@@ -58,6 +60,41 @@ func UploadCrossSigningDeviceKeys(
 		}
 	}
 
+	{
+		var keysResp api.QueryKeysResponse
+		keyserverAPI.QueryKeys(req.Context(), &api.QueryKeysRequest{UserID: device.UserID, UserToDevices: map[string][]string{device.UserID: []string{}}}, &keysResp)
+		if err := keysResp.Error; err != nil {
+			return convertKeyError(err)
+		}
+		hasDifferentKeys := func(userID string, uploadReqCSKey *fclient.CrossSigningKey, dbCSKeys map[string]fclient.CrossSigningKey) bool {
+			dbCSKey, ok := dbCSKeys[userID]
+			if !ok {
+				return true
+			}
+			dbKeysExist := len(dbCSKey.Keys) > 0
+			for keyID, key := range uploadReqCSKey.Keys {
+				// If dbKeysExist is false and we enter the loop, it means we have received at least one key that is not in the DB, and we want to persist it.
+				if !dbKeysExist {
+					return true
+				}
+				dbKey, ok := dbCSKey.Keys[keyID]
+				if !ok || !slices.Equal(dbKey, key) {
+					return true
+				}
+			}
+			return false
+		}
+
+		if !hasDifferentKeys(device.UserID, &uploadReq.MasterKey, keysResp.MasterKeys) &&
+			!hasDifferentKeys(device.UserID, &uploadReq.SelfSigningKey, keysResp.SelfSigningKeys) &&
+			!hasDifferentKeys(device.UserID, &uploadReq.UserSigningKey, keysResp.UserSigningKeys) {
+			return util.JSONResponse{
+				Code: http.StatusOK,
+				JSON: map[int]interface{}{},
+			}
+		}
+	}
+
 	if isCrossSigningSetup {
 		// With MSC3861, UIA is not possible. Instead, the auth service has to explicitly mark the master key as replaceable.
 		if cfg.MSCs.MSC3861Enabled() {
@@ -83,7 +120,7 @@ func UploadCrossSigningDeviceKeys(
 							},
 						},
 						strings.Join([]string{
-							"To reset your end-to-end encryption cross-signing, identity, you first need to approve it at",
+							"To reset your end-to-end encryption cross-signing identity, you first need to approve it at",
 							url,
 							"and then try again.",
 						}, " "),
