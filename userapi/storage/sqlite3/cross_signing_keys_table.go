@@ -44,8 +44,8 @@ const upsertCrossSigningKeysForUserSQL = "" +
 
 const updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL = "" +
 	"UPDATE keyserver_cross_signing_keys" +
-	" SET updatable_without_uia_before_ms = $3" +
-	" WHERE user_id = $1 AND key_type = $2"
+	" SET updatable_without_uia_before_ms = $1" +
+	" WHERE user_id = $2 AND key_type = $3"
 
 type crossSigningKeysStatements struct {
 	db                                                        *sql.DB
@@ -149,7 +149,7 @@ func (s *crossSigningKeysStatements) UpsertCrossSigningKeysForUser(
 func (s *crossSigningKeysStatements) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, txn *sql.Tx, userID string, duration time.Duration) (int64, error) {
 	keyTypeInt, _ := types.KeyTypePurposeToInt[fclient.CrossSigningKeyPurposeMaster]
 	ts := time.Now().Add(duration).UnixMilli()
-	result, err := sqlutil.TxStmt(txn, s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt).ExecContext(ctx, userID, keyTypeInt, ts)
+	result, err := sqlutil.TxStmt(txn, s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt).ExecContext(ctx, ts, userID, keyTypeInt)
 	if err != nil {
 		return -1, err
 	}
