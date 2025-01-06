@@ -111,6 +111,7 @@ type ClientUserAPI interface {
 	QueryLocalpartForThreePID(ctx context.Context, req *QueryLocalpartForThreePIDRequest, res *QueryLocalpartForThreePIDResponse) error
 	PerformForgetThreePID(ctx context.Context, req *PerformForgetThreePIDRequest, res *struct{}) error
 	PerformSaveThreePIDAssociation(ctx context.Context, req *PerformSaveThreePIDAssociationRequest, res *struct{}) error
+	PerformBulkSaveThreePIDAssociation(ctx context.Context, req *PerformBulkSaveThreePIDAssociationRequest, res *struct{}) error
 }
 
 type KeyBackupAPI interface {
@@ -651,6 +652,12 @@ type PerformSaveThreePIDAssociationRequest struct {
 	Localpart  string
 	ServerName spec.ServerName
 	Medium     string
+}
+
+type PerformBulkSaveThreePIDAssociationRequest struct {
+	ThreePIDs  []authtypes.ThreePID
+	Localpart  string
+	ServerName spec.ServerName
 }
 
 type QueryAccountByLocalpartRequest struct {

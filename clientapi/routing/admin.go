@@ -23,6 +23,7 @@ import (
 
 	appserviceAPI "github.com/element-hq/dendrite/appservice/api"
 	clientapi "github.com/element-hq/dendrite/clientapi/api"
+	"github.com/element-hq/dendrite/clientapi/auth/authtypes"
 	clienthttputil "github.com/element-hq/dendrite/clientapi/httputil"
 	"github.com/element-hq/dendrite/clientapi/userutil"
 	"github.com/element-hq/dendrite/internal/httputil"
@@ -31,6 +32,7 @@ import (
 	"github.com/element-hq/dendrite/setup/jetstream"
 	"github.com/element-hq/dendrite/userapi/api"
 	userapi "github.com/element-hq/dendrite/userapi/api"
+	"github.com/element-hq/dendrite/userapi/storage/shared"
 )
 
 const (
@@ -842,11 +844,13 @@ type adminExternalID struct {
 type adminCreateOrModifyAccountRequest struct {
 	DisplayName string `json:"displayname"`
 	AvatarURL   string `json:"avatar_url"`
-	// TODO: the following fields are not used here, but they are used in Synapse. Probably we should reproduce the logic of the
-	// endpoint fully compatible.
+	ThreePIDs   []struct {
+		Medium  string `json:"medium"`
+		Address string `json:"address"`
+	} `json:"threepids"`
+	// TODO: the following fields are not used here, but they are used in Synapse.
 	// Password      string            `json:"password"`
 	// LogoutDevices bool              `json:"logout_devices"`
-	// Threepids     json.RawMessage   `json:"threepids"`
 	// ExternalIDs   []adminExternalID `json:"external_ids"`
 	// Admin         bool              `json:"admin"`
 	// Deactivated   bool              `json:"deactivated"`
@@ -872,24 +876,45 @@ func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI
 		logger.Debugf("UnmarshalJSONRequest failed: %+v", *resErr)
 		return *resErr
 	}
-	logger.Debugf("adminCreateOrModifyAccountRequest is: %+v", r)
+	logger.Debugf("adminCreateOrModifyAccountRequest is: %#v", r)
 	statusCode := http.StatusOK
-	{
-		var res userapi.PerformAccountCreationResponse
-		err = userAPI.PerformAccountCreation(req.Context(), &userapi.PerformAccountCreationRequest{
-			AccountType: userapi.AccountTypeUser,
-			Localpart:   local,
-			ServerName:  domain,
-			OnConflict:  api.ConflictUpdate,
-			AvatarURL:   r.AvatarURL,
-			DisplayName: r.DisplayName,
-		}, &res)
-		if err != nil {
-			logger.WithError(err).Debugln("Failed creating account")
-			return util.MessageResponse(http.StatusBadRequest, err.Error())
+
+	// TODO: Ideally, the following commands should be executed in one transaction.
+	// can we propagate the tx object and pass it in context?
+	var res userapi.PerformAccountCreationResponse
+	err = userAPI.PerformAccountCreation(req.Context(), &userapi.PerformAccountCreationRequest{
+		AccountType: userapi.AccountTypeUser,
+		Localpart:   local,
+		ServerName:  domain,
+		OnConflict:  api.ConflictUpdate,
+		AvatarURL:   r.AvatarURL,
+		DisplayName: r.DisplayName,
+	}, &res)
+	if err != nil {
+		logger.WithError(err).Error("userAPI.PerformAccountCreation")
+		return util.MessageResponse(http.StatusBadRequest, err.Error())
+	}
+	if res.AccountCreated {
+		statusCode = http.StatusCreated
+	}
+
+	if l := len(r.ThreePIDs); l > 0 {
+		logger.Debugf("Trying to bulk save 3PID associations: %+v", r.ThreePIDs)
+		threePIDs := make([]authtypes.ThreePID, 0, len(r.ThreePIDs))
+		for i := range r.ThreePIDs {
+			tpid := &r.ThreePIDs[i]
+			threePIDs = append(threePIDs, authtypes.ThreePID{Medium: tpid.Medium, Address: tpid.Address})
 		}
-		if res.AccountCreated {
-			statusCode = http.StatusCreated
+		err = userAPI.PerformBulkSaveThreePIDAssociation(req.Context(), &userapi.PerformBulkSaveThreePIDAssociationRequest{
+			ThreePIDs:  threePIDs,
+			Localpart:  local,
+			ServerName: domain,
+		}, &struct{}{})
+		if err == shared.Err3PIDInUse {
+			return util.MessageResponse(http.StatusBadRequest, err.Error())
+		} else if err != nil {
+			logger.WithError(err).Error("userAPI.PerformSaveThreePIDAssociation")
+			return util.ErrorResponse(err)
 		}
 	}
 

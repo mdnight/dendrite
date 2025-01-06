@@ -987,4 +987,8 @@ func (a *UserInternalAPI) PerformSaveThreePIDAssociation(ctx context.Context, re
 	return a.DB.SaveThreePIDAssociation(ctx, req.ThreePID, req.Localpart, req.ServerName, req.Medium)
 }
 
+func (a *UserInternalAPI) PerformBulkSaveThreePIDAssociation(ctx context.Context, req *api.PerformBulkSaveThreePIDAssociationRequest, res *struct{}) error {
+	return a.DB.BulkSaveThreePIDAssociation(ctx, req.ThreePIDs, req.Localpart, req.ServerName)
+}
+
 const pushRulesAccountDataType = "m.push_rules"
