@@ -840,7 +840,7 @@ type adminExternalID struct {
 }
 
 type adminCreateOrModifyAccountRequest struct {
-	DisplayName string `json:"display_name"`
+	DisplayName string `json:"displayname"`
 	AvatarURL   string `json:"avatar_url"`
 	// TODO: the following fields are not used here, but they are used in Synapse. Probably we should reproduce the logic of the
 	// endpoint fully compatible.
