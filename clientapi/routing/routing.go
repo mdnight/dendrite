@@ -330,14 +330,15 @@ func Setup(
 		}, httputil.WithAllowGuests()),
 	).Methods(http.MethodPost, http.MethodOptions)
 
-	if m := mscCfg.MSC3861; mscCfg.Enabled("msc3861") && m != nil && m.Enabled {
+	if mscCfg.MSC3861Enabled() {
+		m := mscCfg.MSC3861
+
 		unstableMux.Handle("/org.matrix.msc2965/auth_issuer",
 			httputil.MakeExternalAPI("auth_issuer", func(r *http.Request) util.JSONResponse {
 				return util.JSONResponse{Code: http.StatusOK, JSON: map[string]string{
 					"issuer": m.Issuer,
 				}}
 			})).Methods(http.MethodGet)
-
 		synapseAdminRouter.Handle("/admin/v1/username_available",
 			httputil.MakeServiceAdminAPI("admin_username_available", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminCheckUsernameAvailable(r, userAPI, cfg)
@@ -357,7 +358,6 @@ func Setup(
 					return util.JSONResponse{Code: http.StatusMethodNotAllowed, JSON: nil}
 				}
 			})).Methods(http.MethodPut, http.MethodGet)
-
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}/devices",
 			httputil.MakeServiceAdminAPI("admin_create_retrieve_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminUserDeviceRetrieveCreate(r, userAPI, cfg)
@@ -370,11 +370,57 @@ func Setup(
 			httputil.MakeServiceAdminAPI("admin_delete_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminUserDevicesDelete(r, userAPI, cfg)
 			})).Methods(http.MethodPost)
-
 		synapseAdminRouter.Handle("/admin/v1/users/{userID}/_allow_cross_signing_replacement_without_uia",
 			httputil.MakeServiceAdminAPI("admin_allow_cross_signing_replacement_without_uia", m.AdminToken, func(r *http.Request) util.JSONResponse {
 				return AdminAllowCrossSigningReplacementWithoutUIA(r, userAPI)
 			})).Methods(http.MethodPost)
+	} else {
+		// If msc3861 is enabled, these endpoints are either redundant or replaced by Matrix Auth Service (MAS)
+		// Once we migrate to MAS completely, these edndpoints should be removed
+
+		v3mux.Handle("/register", httputil.MakeExternalAPI("register", func(req *http.Request) util.JSONResponse {
+			if r := rateLimits.Limit(req, nil); r != nil {
+				return *r
+			}
+			return Register(req, userAPI, cfg)
+		})).Methods(http.MethodPost, http.MethodOptions)
+
+		v3mux.Handle("/register/available", httputil.MakeExternalAPI("registerAvailable", func(req *http.Request) util.JSONResponse {
+			if r := rateLimits.Limit(req, nil); r != nil {
+				return *r
+			}
+			return RegisterAvailable(req, cfg, userAPI)
+		})).Methods(http.MethodGet, http.MethodOptions)
+
+		// Stub endpoints required by Element
+
+		v3mux.Handle("/login",
+			httputil.MakeExternalAPI("login", func(req *http.Request) util.JSONResponse {
+				if r := rateLimits.Limit(req, nil); r != nil {
+					return *r
+				}
+				return Login(req, userAPI, cfg)
+			}),
+		).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+
+		v3mux.Handle("/auth/{authType}/fallback/web",
+			httputil.MakeHTTPAPI("auth_fallback", userVerifier, enableMetrics, func(w http.ResponseWriter, req *http.Request) {
+				vars := mux.Vars(req)
+				AuthFallback(w, req, vars["authType"], cfg)
+			}),
+		).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+
+		v3mux.Handle("/logout",
+			httputil.MakeAuthAPI("logout", userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+				return Logout(req, userAPI, device)
+			}),
+		).Methods(http.MethodPost, http.MethodOptions)
+
+		v3mux.Handle("/logout/all",
+			httputil.MakeAuthAPI("logout", userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+				return LogoutAll(req, userAPI, device)
+			}),
+		).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	if mscCfg.Enabled("msc2753") {
@@ -577,20 +623,6 @@ func Setup(
 		}, httputil.WithAllowGuests()),
 	).Methods(http.MethodGet, http.MethodOptions)
 
-	v3mux.Handle("/register", httputil.MakeExternalAPI("register", func(req *http.Request) util.JSONResponse {
-		if r := rateLimits.Limit(req, nil); r != nil {
-			return *r
-		}
-		return Register(req, userAPI, cfg)
-	})).Methods(http.MethodPost, http.MethodOptions)
-
-	v3mux.Handle("/register/available", httputil.MakeExternalAPI("registerAvailable", func(req *http.Request) util.JSONResponse {
-		if r := rateLimits.Limit(req, nil); r != nil {
-			return *r
-		}
-		return RegisterAvailable(req, cfg, userAPI)
-	})).Methods(http.MethodGet, http.MethodOptions)
-
 	v3mux.Handle("/directory/room/{roomAlias}",
 		httputil.MakeExternalAPI("directory_room", func(req *http.Request) util.JSONResponse {
 			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
@@ -665,18 +697,6 @@ func Setup(
 			return GetPostPublicRooms(req, rsAPI, extRoomsProvider, federation, cfg)
 		}),
 	).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
-
-	v3mux.Handle("/logout",
-		httputil.MakeAuthAPI("logout", userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-			return Logout(req, userAPI, device)
-		}),
-	).Methods(http.MethodPost, http.MethodOptions)
-
-	v3mux.Handle("/logout/all",
-		httputil.MakeAuthAPI("logout", userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-			return LogoutAll(req, userAPI, device)
-		}),
-	).Methods(http.MethodPost, http.MethodOptions)
 
 	v3mux.Handle("/rooms/{roomID}/typing/{userID}",
 		httputil.MakeAuthAPI("rooms_typing", userVerifier, func(req *http.Request, device *userapi.Device) util.JSONResponse {
@@ -761,24 +781,6 @@ func Setup(
 			return Deactivate(req, userInteractiveAuth, userAPI, device)
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
-
-	// Stub endpoints required by Element
-
-	v3mux.Handle("/login",
-		httputil.MakeExternalAPI("login", func(req *http.Request) util.JSONResponse {
-			if r := rateLimits.Limit(req, nil); r != nil {
-				return *r
-			}
-			return Login(req, userAPI, cfg)
-		}),
-	).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
-
-	v3mux.Handle("/auth/{authType}/fallback/web",
-		httputil.MakeHTTPAPI("auth_fallback", userVerifier, enableMetrics, func(w http.ResponseWriter, req *http.Request) {
-			vars := mux.Vars(req)
-			AuthFallback(w, req, vars["authType"], cfg)
-		}),
-	).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
 
 	// Push rules
 
