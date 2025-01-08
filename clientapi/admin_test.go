@@ -801,14 +801,14 @@ func TestPurgeRoom(t *testing.T) {
 		rsAPI.SetFederationAPI(fsAPI, nil)
 
 		userAPI := userapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
-		syncapi.AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, userAPI, rsAPI, caches, caching.DisableMetrics)
+		userVerifier := auth.DefaultUserVerifier{UserAPI: userAPI}
+		syncapi.AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, userAPI, rsAPI, caches, &userVerifier, caching.DisableMetrics)
 
 		// Create the room
 		if err := api.SendEvents(ctx, rsAPI, api.KindNew, room.Events(), "test", "test", "test", nil, false); err != nil {
 			t.Fatalf("failed to send events: %v", err)
 		}
 
-		userVerifier := auth.DefaultUserVerifier{UserAPI: userAPI}
 		// We mostly need the rsAPI for this test, so nil for other APIs/caches etc.
 		AddPublicRoutes(processCtx, routers, cfg, &natsInstance, nil, rsAPI, nil, nil, nil, userAPI, nil, nil, &userVerifier, caching.DisableMetrics)
 
