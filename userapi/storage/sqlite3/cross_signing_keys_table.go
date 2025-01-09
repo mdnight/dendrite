@@ -147,7 +147,7 @@ func (s *crossSigningKeysStatements) UpsertCrossSigningKeysForUser(
 }
 
 func (s *crossSigningKeysStatements) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, txn *sql.Tx, userID string, duration time.Duration) (int64, error) {
-	keyTypeInt, _ := types.KeyTypePurposeToInt[fclient.CrossSigningKeyPurposeMaster]
+	keyTypeInt := types.KeyTypePurposeToInt[fclient.CrossSigningKeyPurposeMaster]
 	ts := time.Now().Add(duration).UnixMilli()
 	result, err := sqlutil.TxStmt(txn, s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt).ExecContext(ctx, ts, userID, keyTypeInt)
 	if err != nil {

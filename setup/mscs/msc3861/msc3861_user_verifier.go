@@ -148,6 +148,7 @@ type requester struct {
 	IsGuest bool
 }
 
+// nolint: gocyclo
 func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token string) (*requester, error) {
 	var userID *spec.UserID
 	logger := util.GetLogger(ctx)
@@ -220,7 +221,7 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		var account *api.Account
 		{
 			var rs api.QueryAccountByLocalpartResponse
-			err := m.userAPI.QueryAccountByLocalpart(ctx, &api.QueryAccountByLocalpartRequest{Localpart: userID.Local(), ServerName: userID.Domain()}, &rs)
+			err = m.userAPI.QueryAccountByLocalpart(ctx, &api.QueryAccountByLocalpartRequest{Localpart: userID.Local(), ServerName: userID.Domain()}, &rs)
 			if err != nil && err != sql.ErrNoRows {
 				logger.WithError(err).Error("QueryAccountByLocalpart")
 				return nil, err
@@ -241,7 +242,7 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 			}
 		}
 
-		if err := m.userAPI.PerformLocalpartExternalUserIDCreation(ctx, &api.PerformLocalpartExternalUserIDCreationRequest{
+		if err = m.userAPI.PerformLocalpartExternalUserIDCreation(ctx, &api.PerformLocalpartExternalUserIDCreationRequest{
 			Localpart:    userID.Local(),
 			ExternalID:   sub,
 			AuthProvider: externalAuthProvider,
@@ -348,7 +349,7 @@ func (m *MSC3861UserVerifier) introspectToken(ctx context.Context, token string)
 		return nil, err
 	}
 	body := resp.Body
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint: errcheck
 
 	if c := resp.StatusCode; c < 200 || c >= 300 {
 		return nil, errors.New(strings.Join([]string{"The introspection endpoint returned a '", resp.Status, "' response"}, ""))
@@ -405,7 +406,7 @@ func fetchOpenIDConfiguration(httpClient *http.Client, authHostURL string) (*Ope
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint: errcheck
 	if resp.StatusCode != http.StatusOK {
 		return nil, &mscError{Code: codeOpenidConfigEndpointNon2xx, Msg: ".well-known/openid-configuration endpoint returned non-200 response"}
 	}

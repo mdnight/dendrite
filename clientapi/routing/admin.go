@@ -539,7 +539,7 @@ func AdminUserDeviceRetrieveCreate(
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, _ := vars["userID"]
+	userID := vars["userID"]
 	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
 	if err != nil {
 		return util.JSONResponse{
@@ -567,7 +567,7 @@ func AdminUserDeviceRetrieveCreate(
 		userDeviceExists := false
 		{
 			var rs api.QueryDevicesResponse
-			if err := userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
+			if err = userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
 				logger.WithError(err).Error("QueryDevices")
 				return util.JSONResponse{
 					Code: http.StatusInternalServerError,
@@ -590,7 +590,7 @@ func AdminUserDeviceRetrieveCreate(
 
 		if !userDeviceExists {
 			var rs userapi.PerformDeviceCreationResponse
-			if err := userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
+			if err = userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
 				Localpart:          local,
 				ServerName:         domain,
 				DeviceID:           &payload.DeviceID,
@@ -656,8 +656,8 @@ func AdminUserDeviceDelete(
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, _ := vars["userID"]
-	deviceID, _ := vars["deviceID"]
+	userID := vars["userID"]
+	deviceID := vars["deviceID"]
 	logger := util.GetLogger(req.Context())
 
 	// XXX: we probably have to delete session from the sessions dict
@@ -718,13 +718,13 @@ func AdminUserDevicesDelete(
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, _ := vars["userID"]
+	userID := vars["userID"]
 
 	var payload struct {
 		Devices []string `json:"devices"`
 	}
 
-	defer req.Body.Close()
+	defer req.Body.Close() // nolint: errcheck
 	if err = json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		logger.WithError(err).Error("unable to decode device deletion request")
 		return util.JSONResponse{
@@ -765,7 +765,7 @@ func AdminDeactivateAccount(
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, _ := vars["userID"]
+	userID := vars["userID"]
 	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
@@ -836,11 +836,6 @@ func AdminAllowCrossSigningReplacementWithoutUIA(
 
 }
 
-type adminExternalID struct {
-	AuthProvider string `json:"auth_provider"`
-	ExternalID   string `json:"external_id"`
-}
-
 type adminCreateOrModifyAccountRequest struct {
 	DisplayName string `json:"displayname"`
 	AvatarURL   string `json:"avatar_url"`
@@ -848,10 +843,13 @@ type adminCreateOrModifyAccountRequest struct {
 		Medium  string `json:"medium"`
 		Address string `json:"address"`
 	} `json:"threepids"`
-	// TODO: the following fields are not used here, but they are used in Synapse.
+	// TODO: the following fields are not used by dendrite, but they are used in Synapse.
 	// Password      string            `json:"password"`
 	// LogoutDevices bool              `json:"logout_devices"`
-	// ExternalIDs   []adminExternalID `json:"external_ids"`
+	// ExternalIDs   []struct{
+	// 	AuthProvider string `json:"auth_provider"`
+	// 	ExternalID   string `json:"external_id"`
+	// } `json:"external_ids"`
 	// Admin         bool              `json:"admin"`
 	// Deactivated   bool              `json:"deactivated"`
 	// Locked        bool              `json:"locked"`
@@ -863,7 +861,7 @@ func AdminCreateOrModifyAccount(req *http.Request, userAPI userapi.ClientUserAPI
 	if err != nil {
 		return util.MessageResponse(http.StatusBadRequest, err.Error())
 	}
-	userID, _ := vars["userID"]
+	userID := vars["userID"]
 	local, domain, err := userutil.ParseUsernameParam(userID, cfg.Matrix)
 	if err != nil {
 		return util.JSONResponse{

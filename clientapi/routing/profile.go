@@ -204,7 +204,7 @@ func SetDisplayName(
 		// to the provider's pseudo-device and includes only the AccountTypeOIDCService flag. To continue,
 		// we need to replace the admin's device with the user's device
 		var rs userapi.QueryDevicesResponse
-		err := userAPI.QueryDevices(req.Context(), &userapi.QueryDevicesRequest{UserID: userID}, &rs)
+		err = userAPI.QueryDevices(req.Context(), &userapi.QueryDevicesRequest{UserID: userID}, &rs)
 		if err != nil {
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,

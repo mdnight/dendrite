@@ -626,7 +626,7 @@ func testHistoryVisibility(t *testing.T, dbType test.DBType) {
 		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 		rsAPI.SetFederationAPI(nil, nil)
 		userAPI := usrapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, nil, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
-	userVerifier := auth.DefaultUserVerifier{UserAPI: userAPI}
+		userVerifier := auth.DefaultUserVerifier{UserAPI: userAPI}
 		AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, &syncUserAPI{accounts: []userapi.Device{aliceDev, bobDev}}, rsAPI, caches, &userVerifier, caching.DisableMetrics)
 
 		for _, tc := range testCases {
