@@ -148,15 +148,13 @@ func testSyncAccessTokens(t *testing.T, dbType test.DBType) {
 	cm := sqlutil.NewConnectionManager(processCtx, cfg.Global.DatabaseOptions)
 	caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
 	natsInstance := jetstream.NATSInstance{}
-	userAPI := usrapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, nil, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
-	userVerifier := auth.DefaultUserVerifier{UserAPI: userAPI}
 	defer close()
 
 	jsctx, _ := natsInstance.Prepare(processCtx, &cfg.Global.JetStream)
 	defer jetstream.DeleteAllStreams(jsctx, &cfg.Global.JetStream)
 	msgs := toNATSMsgs(t, cfg, room.Events()...)
 
-	AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, &syncUserAPI{accounts: []userapi.Device{alice}}, &syncRoomserverAPI{rooms: []*test.Room{room}}, caches, &userVerifier, caching.DisableMetrics)
+	AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, &syncUserAPI{accounts: []userapi.Device{alice}}, &syncRoomserverAPI{rooms: []*test.Room{room}}, caches, nil, caching.DisableMetrics)
 	testrig.MustPublishMsgs(t, jsctx, msgs...)
 
 	testCases := []struct {
