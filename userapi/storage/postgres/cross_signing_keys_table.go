@@ -39,8 +39,8 @@ const selectCrossSigningKeysForUserAndKeyTypeSQL = "" +
 	" WHERE user_id = $1 AND key_type = $2"
 
 const upsertCrossSigningKeysForUserSQL = "" +
-	"INSERT INTO keyserver_cross_signing_keys (user_id, key_type, key_data)" +
-	" VALUES($1, $2, $3)" +
+	"INSERT INTO keyserver_cross_signing_keys (user_id, key_type, key_data, updatable_without_uia_before_ms)" +
+	" VALUES($1, $2, $3, $4)" +
 	" ON CONFLICT (user_id, key_type) DO UPDATE SET key_data = $3"
 
 const updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL = "" +
