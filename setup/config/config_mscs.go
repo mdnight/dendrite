@@ -6,7 +6,7 @@ type MSCs struct {
 	Matrix *Global `yaml:"-"`
 
 	// The MSCs to enable. Supported MSCs include:
-	// 'msc3861': Delegate auth to an OIDC provider. This line MUST always go first if the msc is used https://github.com/matrix-org/matrix-spec-proposals/pull/3861
+	// 'msc3861': Delegate auth to an OIDC provider - https://github.com/matrix-org/matrix-spec-proposals/pull/3861
 	// 'msc2444': Peeking over federation - https://github.com/matrix-org/matrix-doc/pull/2444
 	// 'msc2753': Peeking via /sync - https://github.com/matrix-org/matrix-doc/pull/2753
 	// 'msc2836': Threading - https://github.com/matrix-org/matrix-doc/pull/2836
@@ -40,17 +40,16 @@ func (c *MSCs) Verify(configErrs *ConfigErrors) {
 	if c.Matrix.DatabaseOptions.ConnectionString == "" {
 		checkNotEmpty(configErrs, "mscs.database.connection_string", string(c.Database.ConnectionString))
 	}
-	if m := c.MSC3861; m != nil {
+	if m := c.MSC3861; m != nil && c.MSC3861Enabled() {
 		m.Verify(configErrs)
 	}
 }
 
 func (c *MSCs) MSC3861Enabled() bool {
-	return slices.Contains(c.MSCs, "msc3861") && c.MSC3861 != nil && c.MSC3861.Enabled
+	return slices.Contains(c.MSCs, "msc3861") && c.MSC3861 != nil
 }
 
 type MSC3861 struct {
-	Enabled              bool   `yaml:"enabled"`
 	Issuer               string `yaml:"issuer"`
 	ClientID             string `yaml:"client_id"`
 	ClientSecret         string `yaml:"client_secret"`
@@ -59,9 +58,6 @@ type MSC3861 struct {
 }
 
 func (m *MSC3861) Verify(configErrs *ConfigErrors) {
-	if !m.Enabled {
-		return
-	}
 	checkNotEmpty(configErrs, "mscs.msc3861.issuer", string(m.Issuer))
 	checkNotEmpty(configErrs, "mscs.msc3861.client_id", string(m.ClientID))
 	checkNotEmpty(configErrs, "mscs.msc3861.client_secret", string(m.ClientSecret))

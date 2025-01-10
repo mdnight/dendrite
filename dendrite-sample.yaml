@@ -285,13 +285,11 @@ media_api:
 # Configuration for enabling experimental MSCs on this homeserver.
 mscs:
   mscs:
-  #  - msc3861  # (Next-gen auth, see https://github.com/matrix-org/matrix-doc/pull/3861. MUST always go first in the list)
+  #  - msc3861  # (Next-gen auth, see https://github.com/matrix-org/matrix-doc/pull/3861)
   #  - msc2836  # (Threading, see https://github.com/matrix-org/matrix-doc/pull/2836)
 
   # This block has no effect if the feature is not activated in the list above
   # msc3861:
-  #   enabled: true
-
   #   # OIDC issuer advertised by the service.
   #   # See https://element-hq.github.io/matrix-authentication-service/reference/configuration.html#http
   #   issuer: "https://mas.example.com/"
