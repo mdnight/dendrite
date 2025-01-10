@@ -673,7 +673,8 @@ func testHistoryVisibility(t *testing.T, dbType test.DBType) {
 				Device   *userapi.Device
 				Response *util.JSONResponse
 			}{
-				bobDev.AccessToken: {Device: &bobDev, Response: nil},
+				aliceDev.AccessToken: {Device: &aliceDev, Response: nil},
+				bobDev.AccessToken:   {Device: &bobDev, Response: nil},
 			},
 		}
 		AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, &syncUserAPI{accounts: []userapi.Device{aliceDev, bobDev}}, rsAPI, caches, &uv, caching.DisableMetrics)
