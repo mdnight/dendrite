@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/element-hq/dendrite/userapi/storage/postgres/deltas"
+
 	"github.com/element-hq/dendrite/internal"
 	"github.com/element-hq/dendrite/internal/sqlutil"
 	"github.com/element-hq/dendrite/userapi/storage/tables"
@@ -25,7 +27,6 @@ CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
     user_id TEXT NOT NULL,
 	key_type SMALLINT NOT NULL,
 	key_data TEXT NOT NULL,
-    updatable_without_uia_before_ms BIGINT DEFAULT NULL,
 	PRIMARY KEY (user_id, key_type)
 );
 `
@@ -61,6 +62,17 @@ func NewPostgresCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, erro
 		db: db,
 	}
 	_, err := db.Exec(crossSigningKeysSchema)
+	if err != nil {
+		return nil, err
+	}
+	m := sqlutil.NewMigrator(db)
+	m.AddMigrations(
+		sqlutil.Migration{
+			Version: "userapi: add x-signing updatable_without_uia_before_ms",
+			Up:      deltas.UpAddXSigningUpdatableWithoutUIABeforeMs,
+		},
+	)
+	err = m.Up(context.Background())
 	if err != nil {
 		return nil, err
 	}
