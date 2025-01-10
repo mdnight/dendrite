@@ -22,6 +22,8 @@ import (
 	"github.com/matrix-org/util"
 )
 
+const CrossSigningResetStage = "org.matrix.cross_signing_reset"
+
 type crossSigningRequest struct {
 	api.PerformUploadDeviceKeysRequest
 	Auth newPasswordAuth `json:"auth"`
@@ -101,7 +103,7 @@ func UploadCrossSigningDeviceKeys(
 			if !masterKeyUpdatableWithoutUIA {
 				url := ""
 				if m := cfg.MSCs.MSC3861; m.AccountManagementURL != "" {
-					url = strings.Join([]string{m.AccountManagementURL, "?action=", authtypes.LoginTypeCrossSigningReset}, "")
+					url = strings.Join([]string{m.AccountManagementURL, "?action=", CrossSigningResetStage}, "")
 				} else {
 					url = m.Issuer
 				}
@@ -111,11 +113,11 @@ func UploadCrossSigningDeviceKeys(
 						"dummy",
 						[]authtypes.Flow{
 							{
-								Stages: []authtypes.LoginType{authtypes.LoginTypeCrossSigningReset},
+								Stages: []authtypes.LoginType{CrossSigningResetStage},
 							},
 						},
 						map[string]interface{}{
-							authtypes.LoginTypeCrossSigningReset: map[string]string{
+							CrossSigningResetStage: map[string]string{
 								"url": url,
 							},
 						},
@@ -128,7 +130,7 @@ func UploadCrossSigningDeviceKeys(
 				}
 			}
 			// XXX: is it necessary?
-			sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypeCrossSigningReset)
+			sessions.addCompletedSessionStage(sessionID, CrossSigningResetStage)
 		} else {
 			if uploadReq.Auth.Type != authtypes.LoginTypePassword {
 				return util.JSONResponse{
