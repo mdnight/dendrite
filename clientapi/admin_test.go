@@ -1971,7 +1971,179 @@ func TestAdminAllowCrossSigningReplacementWithoutUIA(t *testing.T) {
 }
 
 func TestAdminCreateOrModifyAccount(t *testing.T) {
+	alice := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	bob := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	adminToken := "superSecretAdminToken"
+	ctx := context.Background()
 
+	test.WithAllDatabases(t, func(t *testing.T, dbType test.DBType) {
+		cfg, processCtx, close := testrig.CreateConfig(t, dbType)
+		defer close()
+		natsInstance := jetstream.NATSInstance{}
+		// add a vhost
+		cfg.Global.VirtualHosts = append(cfg.Global.VirtualHosts, &config.VirtualHost{
+			SigningIdentity: fclient.SigningIdentity{ServerName: "vh1"},
+		})
+		// There's no need to add a full config for msc3861 as we need only an admin token
+		cfg.ClientAPI.MSCs.MSCs = []string{"msc3861"}
+		cfg.ClientAPI.MSCs.MSC3861 = &config.MSC3861{AdminToken: adminToken}
+
+		routers := httputil.NewRouters()
+		cm := sqlutil.NewConnectionManager(processCtx, cfg.Global.DatabaseOptions)
+		caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
+		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
+		rsAPI.SetFederationAPI(nil, nil)
+		userAPI := userapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
+		// We mostly need the userAPI for this test, so nil for other APIs/caches etc.
+		AddPublicRoutes(processCtx, routers, cfg, &natsInstance, nil, rsAPI, nil, nil, nil, userAPI, nil, nil, nil, caching.DisableMetrics)
+
+		for _, u := range []*test.User{alice} {
+			userRes := &uapi.PerformAccountCreationResponse{}
+			if err := userAPI.PerformAccountCreation(ctx, &uapi.PerformAccountCreationRequest{
+				AccountType: u.AccountType,
+				Localpart:   u.Localpart,
+				ServerName:  cfg.Global.ServerName,
+				Password:    "",
+			}, userRes); err != nil {
+				t.Errorf("failed to create account: %s", err)
+			}
+		}
+
+		type threePID struct {
+			Medium  string `json:"medium"`
+			Address string `json:"address"`
+		}
+		type adminCreateOrModifyAccountRequest struct {
+			DisplayName string     `json:"displayname"`
+			AvatarURL   string     `json:"avatar_url"`
+			ThreePIDs   []threePID `json:"threepids"`
+		}
+
+		t.Run("Missing auth token", func(t *testing.T) {
+			req := test.NewRequest(t, http.MethodPut, "/_synapse/admin/v2/users/"+alice.ID)
+			rec := httptest.NewRecorder()
+			routers.SynapseAdmin.ServeHTTP(rec, req)
+			t.Logf("%s", rec.Body.String())
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("expected http status %d, got %d: %s", http.StatusUnauthorized, rec.Code, rec.Body.String())
+			}
+			var b spec.MatrixError
+			_ = json.NewDecoder(rec.Body).Decode(&b)
+			if b.ErrCode != spec.ErrorMissingToken {
+				t.Fatalf("expected error code %s, got %s", spec.ErrorMissingToken, b.ErrCode)
+			}
+		})
+
+		testCases := []struct {
+			User     *test.User
+			Payload  adminCreateOrModifyAccountRequest
+			Expected struct {
+				DisplayName,
+				AvatarURL string
+				ThreePIDs []string
+			}
+			Code    int
+			NewUser bool
+		}{
+			{
+				User: alice,
+				Payload: adminCreateOrModifyAccountRequest{
+					DisplayName: "alice",
+					AvatarURL:   "https://alice-avatar.example.com",
+					ThreePIDs: []threePID{
+						{
+							Medium:  "email",
+							Address: "alice@example.com",
+						},
+					},
+				},
+				Expected: struct {
+					DisplayName, AvatarURL string
+					ThreePIDs              []string
+				}{
+					// In order to avoid any confusion and undesired behaviour, we do not change display name and avatar url if account already exists
+					DisplayName: "1",
+					AvatarURL:   "",
+					ThreePIDs:   []string{"alice@example.com"},
+				},
+				Code:    http.StatusOK,
+				NewUser: false,
+			},
+			{
+				User: bob,
+				Payload: adminCreateOrModifyAccountRequest{
+					DisplayName: "bob",
+					AvatarURL:   "https://bob-avatar.example.com",
+					ThreePIDs: []threePID{
+						{
+							Medium:  "email",
+							Address: "bob@example.com",
+						},
+					},
+				},
+				Expected: struct {
+					DisplayName, AvatarURL string
+					ThreePIDs              []string
+				}{
+					DisplayName: "bob",
+					AvatarURL:   "https://bob-avatar.example.com",
+					ThreePIDs:   []string{"bob@example.com"},
+				},
+				Code:    http.StatusCreated,
+				NewUser: true,
+			},
+		}
+
+		for _, tc := range testCases {
+			name := ""
+			if tc.NewUser {
+				name = fmt.Sprintf("Create user %s", tc.User.ID)
+			} else {
+				name = fmt.Sprintf("Modify user %s", tc.User.ID)
+			}
+			t.Run(name, func(t *testing.T) {
+				req := test.NewRequest(
+					t,
+					http.MethodPut,
+					"/_synapse/admin/v2/users/"+tc.User.ID,
+					test.WithJSONBody(t, tc.Payload),
+				)
+				req.Header.Set("Authorization", "Bearer "+adminToken)
+
+				rec := httptest.NewRecorder()
+				routers.SynapseAdmin.ServeHTTP(rec, req)
+				t.Logf("%s", rec.Body.String())
+				if rec.Code != tc.Code {
+					t.Fatalf("expected HTTP status %d, got %d: %s", tc.Code, rec.Code, rec.Body.String())
+				}
+
+				p, _ := userAPI.QueryProfile(ctx, tc.User.ID)
+				if p.DisplayName != tc.Expected.DisplayName {
+					t.Fatalf("expected display name %s, got %s", tc.Expected.DisplayName, p.DisplayName)
+				}
+				if p.AvatarURL != tc.Expected.AvatarURL {
+					t.Fatalf("expected avatar_url %s, got %s", tc.Expected.AvatarURL, p.AvatarURL)
+				}
+				var threePidRs uapi.QueryThreePIDsForLocalpartResponse
+				_ = userAPI.QueryThreePIDsForLocalpart(
+					ctx,
+					&uapi.QueryThreePIDsForLocalpartRequest{Localpart: tc.User.Localpart, ServerName: cfg.Global.ServerName},
+					&threePidRs,
+				)
+				if len(threePidRs.ThreePIDs) != 1 {
+					t.Fatalf("expected 1 3pid  got %d", len(threePidRs.ThreePIDs))
+				}
+				tp := threePidRs.ThreePIDs[0]
+				if tp.Medium != "email" {
+					t.Fatalf("expected 3pid medium email got %s", tp.Medium)
+				}
+				if tp.Address != tc.Payload.ThreePIDs[0].Address {
+					t.Fatalf("expected 3pid address %s got %s", tc.Expected.ThreePIDs[0], tp.Address)
+				}
+			})
+
+		}
+	})
 }
 
 func TestAdminRetrieveAccount(t *testing.T) {
