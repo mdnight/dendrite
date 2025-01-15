@@ -2161,7 +2161,7 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 					ThreePIDs              []string
 				}{
 					// In order to avoid any confusion and undesired behaviour, we do not change display name and avatar url if account already exists
-					DisplayName: "1",
+					DisplayName: alice.Localpart,
 					AvatarURL:   "",
 					ThreePIDs:   []string{"alice@example.com"},
 				},
@@ -2291,32 +2291,42 @@ func TestAdminRetrieveAccount(t *testing.T) {
 			}
 		})
 
-		t.Run("Retrieve existing account", func(t *testing.T) {
-			req := test.NewRequest(t, http.MethodGet, "/_synapse/admin/v2/users/"+alice.ID)
-			req.Header.Set("Authorization", "Bearer "+adminToken)
+		testCase := []struct {
+			Name string
+			User *test.User
+			Code int
+			Body string
+		}{
+			{
+				Name: "Retrieve existing account",
+				User: alice,
+				Code: http.StatusOK,
+				Body: fmt.Sprintf(`{"display_name":"%s","avatar_url":"","deactivated":false}`, alice.Localpart),
+			},
+			{
+				Name: "Retrieve non-existing account",
+				User: bob,
+				Code: http.StatusNotFound,
+				Body: "",
+			},
+		}
 
-			rec := httptest.NewRecorder()
-			routers.SynapseAdmin.ServeHTTP(rec, req)
-			t.Logf("%s", rec.Body.String())
-			if rec.Code != http.StatusOK {
-				t.Fatalf("expected HTTP status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
-			}
-			body := `{"display_name":"1","avatar_url":"","deactivated":false}`
-			if rec.Body.String() != body {
-				t.Fatalf("expected body %s, got %s", body, rec.Body.String())
-			}
-		})
+		for _, tc := range testCase {
+			t.Run("Retrieve existing account", func(t *testing.T) {
+				req := test.NewRequest(t, http.MethodGet, "/_synapse/admin/v2/users/"+tc.User.ID)
+				req.Header.Set("Authorization", "Bearer "+adminToken)
 
-		t.Run("Retrieve non-existing account", func(t *testing.T) {
-			req := test.NewRequest(t, http.MethodGet, "/_synapse/admin/v2/users/"+bob.ID)
-			req.Header.Set("Authorization", "Bearer "+adminToken)
+				rec := httptest.NewRecorder()
+				routers.SynapseAdmin.ServeHTTP(rec, req)
+				t.Logf("%s", rec.Body.String())
+				if rec.Code != tc.Code {
+					t.Fatalf("expected HTTP status %d, got %d: %s", tc.Code, rec.Code, rec.Body.String())
+				}
 
-			rec := httptest.NewRecorder()
-			routers.SynapseAdmin.ServeHTTP(rec, req)
-			t.Logf("%s", rec.Body.String())
-			if rec.Code != http.StatusNotFound {
-				t.Fatalf("expected http status %d, got %d: %s", http.StatusNotFound, rec.Code, rec.Body.String())
-			}
-		})
+				if tc.Body != "" && tc.Body != rec.Body.String() {
+					t.Fatalf("expected body %s, got %s", tc.Body, rec.Body.String())
+				}
+			})
+		}
 	})
 }

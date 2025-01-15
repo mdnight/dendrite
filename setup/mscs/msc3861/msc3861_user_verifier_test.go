@@ -31,65 +31,74 @@ var testIsBlacklistedOrBackingOff = func(s spec.ServerName) (*statistics.ServerS
 	return &statistics.ServerStatistics{}, nil
 }
 
-type roundTripper struct{}
+type roundTripper struct {
+	roundTrip func(request *http.Request) (*http.Response, error)
+}
 
 func (rt *roundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	var (
-		respBody   string
-		statusCode int
-	)
-
-	switch request.URL.String() {
-	case "https://mas.example.com/.well-known/openid-configuration":
-		respBody = `{"introspection_endpoint": "https://mas.example.com/oauth2/introspect"}`
-		statusCode = http.StatusOK
-	case "https://mas.example.com/oauth2/introspect":
-		_ = request.ParseForm()
-
-		switch request.Form.Get("token") {
-		case "validTokenUserExistsTokenActive":
-			statusCode = http.StatusOK
-			resp := introspectionResponse{
-				Active:   true,
-				Scope:    "urn:matrix:org.matrix.msc2967.client:device:devAlice urn:matrix:org.matrix.msc2967.client:api:*",
-				Sub:      "111111111111111111",
-				Username: "1",
-			}
-			b, _ := json.Marshal(resp)
-			respBody = string(b)
-		case "validTokenUserDoesNotExistTokenActive":
-			statusCode = http.StatusOK
-			resp := introspectionResponse{
-				Active:   true,
-				Scope:    "urn:matrix:org.matrix.msc2967.client:device:devBob urn:matrix:org.matrix.msc2967.client:api:*",
-				Sub:      "222222222222222222",
-				Username: "2",
-			}
-			b, _ := json.Marshal(resp)
-			respBody = string(b)
-		case "validTokenUserExistsTokenInactive":
-			statusCode = http.StatusOK
-			resp := introspectionResponse{Active: false}
-			b, _ := json.Marshal(resp)
-			respBody = string(b)
-		default:
-			return nil, errors.New("Request URL not supported by stub")
-		}
-	}
-
-	respReader := io.NopCloser(strings.NewReader(respBody))
-	resp := http.Response{
-		StatusCode:    statusCode,
-		Body:          respReader,
-		ContentLength: int64(len(respBody)),
-		Header:        map[string][]string{"Content-Type": {"application/json"}},
-	}
-	return &resp, nil
+	return rt.roundTrip(request)
 }
 
 func TestVerifyUserFromRequest(t *testing.T) {
+	aliceUser := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	bobUser := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+
+	roundTrip := func(request *http.Request) (*http.Response, error) {
+		var (
+			respBody   string
+			statusCode int
+		)
+
+		switch request.URL.String() {
+		case "https://mas.example.com/.well-known/openid-configuration":
+			respBody = `{"introspection_endpoint": "https://mas.example.com/oauth2/introspect"}`
+			statusCode = http.StatusOK
+		case "https://mas.example.com/oauth2/introspect":
+			_ = request.ParseForm()
+
+			switch request.Form.Get("token") {
+			case "validTokenUserExistsTokenActive":
+				statusCode = http.StatusOK
+				resp := introspectionResponse{
+					Active:   true,
+					Scope:    "urn:matrix:org.matrix.msc2967.client:device:devAlice urn:matrix:org.matrix.msc2967.client:api:*",
+					Sub:      "111111111111111111",
+					Username: aliceUser.Localpart,
+				}
+				b, _ := json.Marshal(resp)
+				respBody = string(b)
+			case "validTokenUserDoesNotExistTokenActive":
+				statusCode = http.StatusOK
+				resp := introspectionResponse{
+					Active:   true,
+					Scope:    "urn:matrix:org.matrix.msc2967.client:device:devBob urn:matrix:org.matrix.msc2967.client:api:*",
+					Sub:      "222222222222222222",
+					Username: bobUser.Localpart,
+				}
+				b, _ := json.Marshal(resp)
+				respBody = string(b)
+			case "validTokenUserExistsTokenInactive":
+				statusCode = http.StatusOK
+				resp := introspectionResponse{Active: false}
+				b, _ := json.Marshal(resp)
+				respBody = string(b)
+			default:
+				return nil, errors.New("Request URL not supported by stub")
+			}
+		}
+
+		respReader := io.NopCloser(strings.NewReader(respBody))
+		resp := http.Response{
+			StatusCode:    statusCode,
+			Body:          respReader,
+			ContentLength: int64(len(respBody)),
+			Header:        map[string][]string{"Content-Type": {"application/json"}},
+		}
+		return &resp, nil
+	}
+
 	httpClient := http.Client{
-		Transport: &roundTripper{},
+		Transport: &roundTripper{roundTrip: roundTrip},
 	}
 
 	ctx := context.Background()
@@ -122,9 +131,6 @@ func TestVerifyUserFromRequest(t *testing.T) {
 			t.Fatal(err.Error())
 		}
 		u, _ := url.Parse("https://example.com/something")
-
-		aliceUser := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
-		bobUser := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
 
 		t.Run("existing user and active token", func(t *testing.T) {
 			localpart, serverName, _ := gomatrixserverlib.SplitID('@', aliceUser.ID)
