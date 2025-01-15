@@ -720,11 +720,13 @@ func AdminUserDevicesDelete(
 	}
 	userID := vars["userID"]
 
+	if req.Body == nil {
+		return util.MessageResponse(http.StatusBadRequest, "body is required")
+	}
 	var payload struct {
 		Devices []string `json:"devices"`
 	}
 
-	defer req.Body.Close() // nolint: errcheck
 	if err = json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		logger.WithError(err).Error("unable to decode device deletion request")
 		return util.JSONResponse{
@@ -732,6 +734,7 @@ func AdminUserDevicesDelete(
 			JSON: spec.InternalServerError{},
 		}
 	}
+	defer req.Body.Close() // nolint: errcheck
 
 	{
 		// XXX: this response struct can completely removed everywhere as it doesn't
