@@ -1491,3 +1491,110 @@ func TestEventReportsGetDelete(t *testing.T) {
 		})
 	})
 }
+
+func TestAdminCheckUsernameAvailable(t *testing.T) {
+	alice := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	adminToken := "superSecretAdminToken"
+	ctx := context.Background()
+
+	test.WithAllDatabases(t, func(t *testing.T, dbType test.DBType) {
+		cfg, processCtx, close := testrig.CreateConfig(t, dbType)
+		defer close()
+		natsInstance := jetstream.NATSInstance{}
+		// add a vhost
+		cfg.Global.VirtualHosts = append(cfg.Global.VirtualHosts, &config.VirtualHost{
+			SigningIdentity: fclient.SigningIdentity{ServerName: "vh1"},
+		})
+		// There's no need to add a full config for msc3861 as we need only an admin token
+		cfg.ClientAPI.MSCs.MSCs = []string{"msc3861"}
+		cfg.ClientAPI.MSCs.MSC3861 = &config.MSC3861{AdminToken: adminToken}
+
+		routers := httputil.NewRouters()
+		cm := sqlutil.NewConnectionManager(processCtx, cfg.Global.DatabaseOptions)
+		caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
+		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
+		rsAPI.SetFederationAPI(nil, nil)
+		// Needed for changing the password/login
+		userAPI := userapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
+		// We mostly need the userAPI for this test, so nil for other APIs/caches etc.
+		AddPublicRoutes(processCtx, routers, cfg, &natsInstance, nil, rsAPI, nil, nil, nil, userAPI, nil, nil, nil, caching.DisableMetrics)
+		userRes := &uapi.PerformAccountCreationResponse{}
+		if err := userAPI.PerformAccountCreation(ctx, &uapi.PerformAccountCreationRequest{
+			AccountType: alice.AccountType,
+			Localpart:   alice.Localpart,
+			ServerName:  cfg.Global.ServerName,
+			Password:    "",
+		}, userRes); err != nil {
+			t.Errorf("failed to create account: %s", err)
+		}
+
+		testCases := []struct {
+			name        string
+			accessToken string
+			userID      string
+			wantOK      bool
+			isAvailable bool
+		}{
+			{name: "Missing auth", accessToken: "", wantOK: false, userID: alice.Localpart, isAvailable: false},
+			{name: "Alice - user exists", accessToken: adminToken, wantOK: true, userID: alice.Localpart, isAvailable: false},
+			{name: "Bob - user does not exist", accessToken: adminToken, wantOK: true, userID: "bob", isAvailable: true},
+		}
+
+		for _, tc := range testCases {
+			tc := tc // ensure we don't accidentally only test the last test case
+			t.Run(tc.name, func(t *testing.T) {
+				req := test.NewRequest(t, http.MethodGet, "/_synapse/admin/v1/username_available?username="+tc.userID)
+				if tc.accessToken != "" {
+					req.Header.Set("Authorization", "Bearer "+tc.accessToken)
+				}
+
+				rec := httptest.NewRecorder()
+				routers.SynapseAdmin.ServeHTTP(rec, req)
+				t.Logf("%s", rec.Body.String())
+				if tc.wantOK && rec.Code != http.StatusOK || !tc.wantOK && rec.Code != http.StatusUnauthorized {
+					t.Fatalf("expected http status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+				}
+
+				if tc.wantOK {
+					b := make(map[string]bool, 1)
+					_ = json.NewDecoder(rec.Body).Decode(&b)
+					available, ok := b["available"]
+					if !ok {
+						t.Fatal("'available' not found in body")
+					}
+					if available != tc.isAvailable {
+						t.Fatalf("expected 'available' to be %t, got %t instead", tc.isAvailable, available)
+					}
+				}
+			})
+		}
+	})
+}
+
+func TestAdminUserDeviceRetrieveCreate(t *testing.T) {
+
+}
+
+func TestAdminUserDeviceDelete(t *testing.T) {
+
+}
+
+func TestAdminUserDevicesDelete(t *testing.T) {
+
+}
+
+func TestAdminDeactivateAccount(t *testing.T) {
+
+}
+
+func TestAdminAllowCrossSigningReplacementWithoutUIA(t *testing.T) {
+
+}
+
+func TestAdminCreateOrModifyAccount(t *testing.T) {
+
+}
+
+func TestAdminRetrieveAccount(t *testing.T) {
+
+}
