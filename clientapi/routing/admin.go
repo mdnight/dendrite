@@ -819,11 +819,16 @@ func AdminAllowCrossSigningReplacementWithoutUIA(
 		}
 		var rs userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse
 		err = userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(req.Context(), &rq, &rs)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			util.GetLogger(req.Context()).WithError(err).Error("userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA")
 			return util.JSONResponse{
 				Code: http.StatusInternalServerError,
 				JSON: spec.Unknown(err.Error()),
+			}
+		} else if errors.Is(err, sql.ErrNoRows) {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.NotFound("User not found."),
 			}
 		}
 		return util.JSONResponse{

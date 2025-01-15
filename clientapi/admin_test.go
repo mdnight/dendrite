@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/element-hq/dendrite/userapi/types"
+
 	"github.com/element-hq/dendrite/federationapi"
 	"github.com/element-hq/dendrite/internal/caching"
 	"github.com/element-hq/dendrite/internal/httputil"
@@ -1967,7 +1969,103 @@ func TestAdminDeactivateAccount(t *testing.T) {
 }
 
 func TestAdminAllowCrossSigningReplacementWithoutUIA(t *testing.T) {
+	alice := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	bob := test.NewUser(t, test.WithAccountType(uapi.AccountTypeUser))
+	adminToken := "superSecretAdminToken"
+	ctx := context.Background()
 
+	test.WithAllDatabases(t, func(t *testing.T, dbType test.DBType) {
+		cfg, processCtx, close := testrig.CreateConfig(t, dbType)
+		defer close()
+		natsInstance := jetstream.NATSInstance{}
+		// add a vhost
+		cfg.Global.VirtualHosts = append(cfg.Global.VirtualHosts, &config.VirtualHost{
+			SigningIdentity: fclient.SigningIdentity{ServerName: "vh1"},
+		})
+		// There's no need to add a full config for msc3861 as we need only an admin token
+		cfg.ClientAPI.MSCs.MSCs = []string{"msc3861"}
+		cfg.ClientAPI.MSCs.MSC3861 = &config.MSC3861{AdminToken: adminToken}
+
+		routers := httputil.NewRouters()
+		cm := sqlutil.NewConnectionManager(processCtx, cfg.Global.DatabaseOptions)
+		caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
+		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
+		rsAPI.SetFederationAPI(nil, nil)
+		userAPI := userapi.NewInternalAPI(processCtx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
+		// We mostly need the userAPI for this test, so nil for other APIs/caches etc.
+		AddPublicRoutes(processCtx, routers, cfg, &natsInstance, nil, rsAPI, nil, nil, nil, userAPI, nil, nil, nil, caching.DisableMetrics)
+
+		t.Run("Missing auth token", func(t *testing.T) {
+			req := test.NewRequest(t, http.MethodPost, "/_synapse/admin/v1/users/"+alice.ID+"/_allow_cross_signing_replacement_without_uia")
+			rec := httptest.NewRecorder()
+			routers.SynapseAdmin.ServeHTTP(rec, req)
+			t.Logf("%s", rec.Body.String())
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("expected http status %d, got %d: %s", http.StatusUnauthorized, rec.Code, rec.Body.String())
+			}
+			var b spec.MatrixError
+			_ = json.NewDecoder(rec.Body).Decode(&b)
+			if b.ErrCode != spec.ErrorMissingToken {
+				t.Fatalf("expected error code %s, got %s", spec.ErrorMissingToken, b.ErrCode)
+			}
+		})
+
+		for _, u := range []*test.User{alice} {
+			var userRes uapi.PerformAccountCreationResponse
+			if err := userAPI.PerformAccountCreation(ctx, &uapi.PerformAccountCreationRequest{
+				AccountType: u.AccountType,
+				Localpart:   u.Localpart,
+				ServerName:  cfg.Global.ServerName,
+				Password:    "",
+			}, &userRes); err != nil {
+				t.Errorf("failed to create account: %s", err)
+			}
+			_ = userAPI.KeyDatabase.StoreCrossSigningKeysForUser(ctx, alice.ID, types.CrossSigningKeyMap{
+				fclient.CrossSigningKeyPurposeMaster: types.CrossSigningKey{
+					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+				},
+				fclient.CrossSigningKeyPurposeSelfSigning: types.CrossSigningKey{
+					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+				},
+				fclient.CrossSigningKeyPurposeUserSigning: types.CrossSigningKey{
+					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+				},
+			}, nil)
+
+		}
+
+		testCases := []struct {
+			Name string
+			User *test.User
+			Code int
+		}{
+			{Name: "existing user", User: alice, Code: 200},
+			{Name: "non-existing user", User: bob, Code: 404},
+		}
+
+		now := time.Now()
+		for _, tc := range testCases {
+			t.Run(tc.Name, func(t *testing.T) {
+				req := test.NewRequest(t, http.MethodPost, "/_synapse/admin/v1/users/"+tc.User.ID+"/_allow_cross_signing_replacement_without_uia")
+				req.Header.Set("Authorization", "Bearer "+adminToken)
+				rec := httptest.NewRecorder()
+				routers.SynapseAdmin.ServeHTTP(rec, req)
+				t.Logf("%s", rec.Body.String())
+
+				if rec.Code != tc.Code {
+					t.Fatalf("expected HTTP status %d, got %d: %s", tc.Code, rec.Code, rec.Body.String())
+				}
+
+				if rec.Code == 200 {
+					buf := make(map[string]int64, 1)
+					_ = json.NewDecoder(rec.Body).Decode(&buf)
+					if ts := buf["updatable_without_uia_before_ms"]; ts <= now.UnixMilli() {
+						t.Fatalf("expected updatable_without_uia_before_ms is in future, got %d", ts)
+					}
+				}
+			})
+		}
+	})
 }
 
 func TestAdminCreateOrModifyAccount(t *testing.T) {
@@ -2035,6 +2133,7 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 		})
 
 		testCases := []struct {
+			Name     string
 			User     *test.User
 			Payload  adminCreateOrModifyAccountRequest
 			Expected struct {
@@ -2042,10 +2141,10 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 				AvatarURL string
 				ThreePIDs []string
 			}
-			Code    int
-			NewUser bool
+			Code int
 		}{
 			{
+				Name: fmt.Sprintf("Modify user %s", alice.ID),
 				User: alice,
 				Payload: adminCreateOrModifyAccountRequest{
 					DisplayName: "alice",
@@ -2066,10 +2165,10 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 					AvatarURL:   "",
 					ThreePIDs:   []string{"alice@example.com"},
 				},
-				Code:    http.StatusOK,
-				NewUser: false,
+				Code: http.StatusOK,
 			},
 			{
+				Name: fmt.Sprintf("Create user %s", bob.ID),
 				User: bob,
 				Payload: adminCreateOrModifyAccountRequest{
 					DisplayName: "bob",
@@ -2089,19 +2188,12 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 					AvatarURL:   "https://bob-avatar.example.com",
 					ThreePIDs:   []string{"bob@example.com"},
 				},
-				Code:    http.StatusCreated,
-				NewUser: true,
+				Code: http.StatusCreated,
 			},
 		}
 
 		for _, tc := range testCases {
-			name := ""
-			if tc.NewUser {
-				name = fmt.Sprintf("Create user %s", tc.User.ID)
-			} else {
-				name = fmt.Sprintf("Modify user %s", tc.User.ID)
-			}
-			t.Run(name, func(t *testing.T) {
+			t.Run(tc.Name, func(t *testing.T) {
 				req := test.NewRequest(
 					t,
 					http.MethodPut,
@@ -2141,7 +2233,6 @@ func TestAdminCreateOrModifyAccount(t *testing.T) {
 					t.Fatalf("expected 3pid address %s got %s", tc.Expected.ThreePIDs[0], tp.Address)
 				}
 			})
-
 		}
 	})
 }
