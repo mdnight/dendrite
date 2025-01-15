@@ -1,6 +1,7 @@
 package msc3861
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -54,8 +55,10 @@ func newMSC3861UserVerifier(
 	serverName spec.ServerName,
 	cfg *config.MSC3861,
 	allowGuest bool,
+	httpClient *http.Client,
 ) (*MSC3861UserVerifier, error) {
-	openIdConfig, err := fetchOpenIDConfiguration(&http.Client{}, cfg.Issuer)
+	client := cmp.Or(httpClient, http.DefaultClient)
+	openIdConfig, err := fetchOpenIDConfiguration(client, cfg.Issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +68,7 @@ func newMSC3861UserVerifier(
 		cfg:          cfg,
 		openIdConfig: openIdConfig,
 		allowGuest:   allowGuest,
-		httpClient:   http.DefaultClient,
+		httpClient:   client,
 	}, nil
 }
 
@@ -105,12 +108,7 @@ func (m *MSC3861UserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Dev
 					Code: http.StatusUnauthorized,
 					JSON: spec.UnknownToken(e.Error()),
 				}
-			case codeAuthError:
-				return nil, &util.JSONResponse{
-					Code: http.StatusInternalServerError,
-					JSON: spec.Unknown(e.Error()),
-				}
-			case codeMxidError:
+			case codeAuthError, codeMxidError:
 				return nil, &util.JSONResponse{
 					Code: http.StatusInternalServerError,
 					JSON: spec.Unknown(e.Error()),

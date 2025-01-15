@@ -8,6 +8,7 @@ func Enable(m *setup.Monolith) error {
 	userVerifier, err := newMSC3861UserVerifier(
 		m.UserAPI, m.Config.Global.ServerName,
 		m.Config.MSCs.MSC3861, !m.Config.ClientAPI.GuestsDisabled,
+		nil,
 	)
 	if err != nil {
 		return err
