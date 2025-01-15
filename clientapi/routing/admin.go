@@ -686,7 +686,7 @@ func AdminUserDeviceDelete(
 		}
 	}
 
-	{
+	if device != nil {
 		// XXX: this response struct can completely removed everywhere as it doesn't
 		// have any functional purpose
 		var res api.PerformDeviceDeletionResponse
