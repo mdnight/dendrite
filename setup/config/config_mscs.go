@@ -1,7 +1,5 @@
 package config
 
-import "slices"
-
 type MSCs struct {
 	Matrix *Global `yaml:"-"`
 
@@ -46,7 +44,7 @@ func (c *MSCs) Verify(configErrs *ConfigErrors) {
 }
 
 func (c *MSCs) MSC3861Enabled() bool {
-	return slices.Contains(c.MSCs, "msc3861") && c.MSC3861 != nil
+	return c.Enabled("msc3861") && c.MSC3861 != nil
 }
 
 type MSC3861 struct {
