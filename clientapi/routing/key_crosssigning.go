@@ -7,10 +7,11 @@
 package routing
 
 import (
+	"context"
 	"net/http"
-	"slices"
-	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/element-hq/dendrite/clientapi/auth"
 	"github.com/element-hq/dendrite/clientapi/auth/authtypes"
@@ -29,10 +30,15 @@ type crossSigningRequest struct {
 	Auth newPasswordAuth `json:"auth"`
 }
 
+type UploadKeysAPI interface {
+	QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse)
+	api.UploadDeviceKeysAPI
+}
+
 func UploadCrossSigningDeviceKeys(
-	req *http.Request, userInteractiveAuth *auth.UserInteractive,
-	keyserverAPI api.ClientKeyAPI, device *api.Device,
-	accountAPI api.ClientUserAPI, cfg *config.ClientAPI,
+	req *http.Request,
+	keyserverAPI UploadKeysAPI, device *api.Device,
+	accountAPI auth.GetAccountByPassword, cfg *config.ClientAPI,
 ) util.JSONResponse {
 	uploadReq := &crossSigningRequest{}
 	uploadRes := &api.PerformUploadDeviceKeysResponse{}
@@ -41,121 +47,58 @@ func UploadCrossSigningDeviceKeys(
 	if resErr != nil {
 		return *resErr
 	}
-	sessionID := uploadReq.Auth.Session
-	if sessionID == "" {
-		sessionID = util.RandomString(sessionIDLength)
-	}
 
-	isCrossSigningSetup := false
-	masterKeyUpdatableWithoutUIA := false
-	{
-		var keysResp api.QueryMasterKeysResponse
-		keyserverAPI.QueryMasterKeys(req.Context(), &api.QueryMasterKeysRequest{UserID: device.UserID}, &keysResp)
-		if err := keysResp.Error; err != nil {
-			return convertKeyError(err)
-		}
-		if k := keysResp.Key; k != nil {
-			isCrossSigningSetup = true
-			if k.UpdatableWithoutUIABeforeMs != nil {
-				masterKeyUpdatableWithoutUIA = time.Now().UnixMilli() < *k.UpdatableWithoutUIABeforeMs
-			}
+	// Query existing keys to determine if UIA is required
+	keyResp := api.QueryKeysResponse{}
+	keyserverAPI.QueryKeys(req.Context(), &api.QueryKeysRequest{
+		UserID:        device.UserID,
+		UserToDevices: map[string][]string{device.UserID: {device.ID}},
+		Timeout:       time.Second * 10,
+	}, &keyResp)
+
+	if keyResp.Error != nil {
+		logrus.WithError(keyResp.Error).Error("Failed to query keys")
+		return util.JSONResponse{
+			Code: http.StatusBadRequest,
+			JSON: spec.Unknown(keyResp.Error.Error()),
 		}
 	}
 
-	{
-		var keysResp api.QueryKeysResponse
-		keyserverAPI.QueryKeys(req.Context(), &api.QueryKeysRequest{UserID: device.UserID, UserToDevices: map[string][]string{device.UserID: []string{}}}, &keysResp)
-		if err := keysResp.Error; err != nil {
-			return convertKeyError(err)
-		}
-		hasDifferentKeys := func(userID string, uploadReqCSKey *fclient.CrossSigningKey, dbCSKeys map[string]fclient.CrossSigningKey) bool {
-			dbCSKey, ok := dbCSKeys[userID]
-			if !ok {
-				return true
-			}
-			dbKeysExist := len(dbCSKey.Keys) > 0
-			for keyID, key := range uploadReqCSKey.Keys {
-				// If dbKeysExist is false and we enter the loop, it means we have received at least one key that is not in the DB, and we want to persist it.
-				if !dbKeysExist {
-					return true
-				}
-				dbKey, ok := dbCSKey.Keys[keyID]
-				if !ok || !slices.Equal(dbKey, key) {
-					return true
-				}
-			}
-			return false
-		}
+	existingMasterKey, hasMasterKey := keyResp.MasterKeys[device.UserID]
+	requireUIA := false
+	if hasMasterKey {
+		// If we have a master key, check if any of the existing keys differ. If they do,
+		// we need to re-authenticate the user.
+		requireUIA = keysDiffer(existingMasterKey, keyResp, uploadReq, device.UserID)
+	}
 
-		if !hasDifferentKeys(device.UserID, &uploadReq.MasterKey, keysResp.MasterKeys) &&
-			!hasDifferentKeys(device.UserID, &uploadReq.SelfSigningKey, keysResp.SelfSigningKeys) &&
-			!hasDifferentKeys(device.UserID, &uploadReq.UserSigningKey, keysResp.UserSigningKeys) {
+	if requireUIA {
+		sessionID := uploadReq.Auth.Session
+		if sessionID == "" {
+			sessionID = util.RandomString(sessionIDLength)
+		}
+		if uploadReq.Auth.Type != authtypes.LoginTypePassword {
 			return util.JSONResponse{
-				Code: http.StatusOK,
-				JSON: map[int]interface{}{},
+				Code: http.StatusUnauthorized,
+				JSON: newUserInteractiveResponse(
+					sessionID,
+					[]authtypes.Flow{
+						{
+							Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
+						},
+					},
+					nil,
+				),
 			}
 		}
-	}
-
-	if isCrossSigningSetup {
-		// With MSC3861, UIA is not possible. Instead, the auth service has to explicitly mark the master key as replaceable.
-		if cfg.MSCs.MSC3861Enabled() {
-			if !masterKeyUpdatableWithoutUIA {
-				url := ""
-				if m := cfg.MSCs.MSC3861; m.AccountManagementURL != "" {
-					url = strings.Join([]string{m.AccountManagementURL, "?action=", CrossSigningResetStage}, "")
-				} else {
-					url = m.Issuer
-				}
-				return util.JSONResponse{
-					Code: http.StatusUnauthorized,
-					JSON: newUserInteractiveResponse(
-						"dummy",
-						[]authtypes.Flow{
-							{
-								Stages: []authtypes.LoginType{CrossSigningResetStage},
-							},
-						},
-						map[string]interface{}{
-							CrossSigningResetStage: map[string]string{
-								"url": url,
-							},
-						},
-						strings.Join([]string{
-							"To reset your end-to-end encryption cross-signing identity, you first need to approve it at",
-							url,
-							"and then try again.",
-						}, " "),
-					),
-				}
-			}
-			// XXX: is it necessary?
-			sessions.addCompletedSessionStage(sessionID, CrossSigningResetStage)
-		} else {
-			if uploadReq.Auth.Type != authtypes.LoginTypePassword {
-				return util.JSONResponse{
-					Code: http.StatusUnauthorized,
-					JSON: newUserInteractiveResponse(
-						sessionID,
-						[]authtypes.Flow{
-							{
-								Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
-							},
-						},
-						nil,
-						"",
-					),
-				}
-			}
-			typePassword := auth.LoginTypePassword{
-				GetAccountByPassword: accountAPI.QueryAccountByPassword,
-				Config:               cfg,
-			}
-			if _, authErr := typePassword.Login(req.Context(), &uploadReq.Auth.PasswordRequest); authErr != nil {
-				return *authErr
-			}
-			sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
+		typePassword := auth.LoginTypePassword{
+			GetAccountByPassword: accountAPI,
+			Config:               cfg,
 		}
+		if _, authErr := typePassword.Login(req.Context(), &uploadReq.Auth.PasswordRequest); authErr != nil {
+			return *authErr
+		}
+		sessions.addCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
 	}
 
 	uploadReq.UserID = device.UserID
@@ -190,6 +133,21 @@ func UploadCrossSigningDeviceKeys(
 		Code: http.StatusOK,
 		JSON: struct{}{},
 	}
+}
+
+func keysDiffer(existingMasterKey fclient.CrossSigningKey, keyResp api.QueryKeysResponse, uploadReq *crossSigningRequest, userID string) bool {
+	masterKeyEqual := existingMasterKey.Equal(&uploadReq.MasterKey)
+	if !masterKeyEqual {
+		return true
+	}
+	existingSelfSigningKey := keyResp.SelfSigningKeys[userID]
+	selfSigningEqual := existingSelfSigningKey.Equal(&uploadReq.SelfSigningKey)
+	if !selfSigningEqual {
+		return true
+	}
+	existingUserSigningKey := keyResp.UserSigningKeys[userID]
+	userSigningEqual := existingUserSigningKey.Equal(&uploadReq.UserSigningKey)
+	return !userSigningEqual
 }
 
 func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.ClientKeyAPI, device *api.Device) util.JSONResponse {
