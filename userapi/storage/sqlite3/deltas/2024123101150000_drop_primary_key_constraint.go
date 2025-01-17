@@ -24,9 +24,9 @@ func UpDropPrimaryKeyConstraint(ctx context.Context, tx *sql.Tx) error {
     );
     INSERT
     INTO userapi_devices (
-        access_token, session_id, device_id, localpart, created_ts, display_name, last_seen_ts, ip, user_agent
+        access_token, session_id, device_id, localpart, server_name, created_ts, display_name, last_seen_ts, ip, user_agent
     )  SELECT
-           access_token, session_id, device_id, localpart, created_ts, display_name, created_ts, '', ''
+           access_token, session_id, device_id, localpart, server_name, created_ts, display_name, created_ts, '', ''
     FROM userapi_devices_tmp;
     DROP TABLE userapi_devices_tmp;`)
 	if err != nil {
