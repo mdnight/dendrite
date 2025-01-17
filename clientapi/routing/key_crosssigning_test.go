@@ -21,6 +21,8 @@ import (
 	"github.com/matrix-org/gomatrixserverlib/spec"
 )
 
+// TODO: add more tests to cover cases related to MSC3861
+
 type mockKeyAPI struct {
 	t                   *testing.T
 	queryKeysData       map[string]api.QueryKeysResponse
