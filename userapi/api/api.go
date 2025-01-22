@@ -48,7 +48,7 @@ type RoomserverUserAPI interface {
 
 // api functions required by the media api
 type MediaUserAPI interface {
-	QueryAcccessTokenAPI
+	QueryAccessTokenAPI
 }
 
 // api functions required by the federation api
@@ -65,7 +65,7 @@ type FederationUserAPI interface {
 
 // api functions required by the sync api
 type SyncUserAPI interface {
-	QueryAcccessTokenAPI
+	QueryAccessTokenAPI
 	SyncKeyAPI
 	QueryAccountData(ctx context.Context, req *QueryAccountDataRequest, res *QueryAccountDataResponse) error
 	PerformLastSeenUpdate(ctx context.Context, req *PerformLastSeenUpdateRequest, res *PerformLastSeenUpdateResponse) error
@@ -76,7 +76,7 @@ type SyncUserAPI interface {
 
 // api functions required by the client api
 type ClientUserAPI interface {
-	QueryAcccessTokenAPI
+	QueryAccessTokenAPI
 	LoginTokenInternalAPI
 	UserLoginAPI
 	ClientKeyAPI
@@ -132,9 +132,8 @@ type QuerySearchProfilesAPI interface {
 	QuerySearchProfiles(ctx context.Context, req *QuerySearchProfilesRequest, res *QuerySearchProfilesResponse) error
 }
 
-// FIXME: typo in Acccess
 // common function for creating authenticated endpoints (used in client/media/sync api)
-type QueryAcccessTokenAPI interface {
+type QueryAccessTokenAPI interface {
 	QueryAccessToken(ctx context.Context, req *QueryAccessTokenRequest, res *QueryAccessTokenResponse) error
 }
 

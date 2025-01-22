@@ -11,7 +11,7 @@ import (
 
 // DefaultUserVerifier implements UserVerifier interface
 type DefaultUserVerifier struct {
-	UserAPI api.QueryAcccessTokenAPI
+	UserAPI api.QueryAccessTokenAPI
 }
 
 // VerifyUserFromRequest authenticates the HTTP request,
