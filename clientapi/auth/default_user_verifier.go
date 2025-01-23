@@ -20,7 +20,8 @@ type DefaultUserVerifier struct {
 // Note: For an AS user, AS dummy device is returned.
 // On failure returns an JSON error response which can be sent to the client.
 func (d *DefaultUserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Device, *util.JSONResponse) {
-	util.GetLogger(req.Context()).Debug("Default VerifyUserFromRequest")
+	ctx := req.Context()
+	util.GetLogger(ctx).Debug("Default VerifyUserFromRequest")
 	// Try to find the Application Service user
 	token, err := ExtractAccessToken(req)
 	if err != nil {
@@ -30,12 +31,12 @@ func (d *DefaultUserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Dev
 		}
 	}
 	var res api.QueryAccessTokenResponse
-	err = d.UserAPI.QueryAccessToken(req.Context(), &api.QueryAccessTokenRequest{
+	err = d.UserAPI.QueryAccessToken(ctx, &api.QueryAccessTokenRequest{
 		AccessToken:      token,
 		AppServiceUserID: req.URL.Query().Get("user_id"),
 	}, &res)
 	if err != nil {
-		util.GetLogger(req.Context()).WithError(err).Error("userAPI.QueryAccessToken failed")
+		util.GetLogger(ctx).WithError(err).Error("userAPI.QueryAccessToken failed")
 		return nil, &util.JSONResponse{
 			Code: http.StatusInternalServerError,
 			JSON: spec.InternalServerError{},
