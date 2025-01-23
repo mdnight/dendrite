@@ -116,7 +116,7 @@ func (s *accountsStatements) InsertAccount(
 	ctx context.Context, txn *sql.Tx, localpart string, serverName spec.ServerName,
 	hash, appserviceID string, accountType api.AccountType,
 ) (*api.Account, error) {
-	createdTimeMS := time.Now().UnixNano() / 1000000
+	createdTimeMS := spec.AsTimestamp(time.Now())
 	stmt := s.insertAccountStmt
 
 	var err error

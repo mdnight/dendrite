@@ -38,7 +38,7 @@ const selectLocalpartExternalIDSQL = "" +
 	"SELECT localpart, created_ts FROM userapi_localpart_external_ids WHERE external_id = $1 AND auth_provider = $2"
 
 const deleteLocalpartExternalIDSQL = "" +
-	"SELECT localpart, external_id, auth_provider, created_ts FROM userapi_localpart_external_ids WHERE external_id = $1 AND auth_provider = $2"
+	"DELETE FROM userapi_localpart_external_ids WHERE external_id = $1 AND auth_provider = $2"
 
 type localpartExternalIDStatements struct {
 	db                       *sql.DB
@@ -69,7 +69,7 @@ func (u *localpartExternalIDStatements) Select(ctx context.Context, txn *sql.Tx,
 		AuthProvider: authProvider,
 	}
 	err := u.selectUserExternalIDStmt.QueryRowContext(ctx, externalID, authProvider).Scan(
-		&ret.Localpart, &ret.CreatedTs,
+		&ret.Localpart, &ret.CreatedTS,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

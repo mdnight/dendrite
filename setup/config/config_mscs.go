@@ -10,7 +10,8 @@ type MSCs struct {
 	// 'msc2836': Threading - https://github.com/matrix-org/matrix-doc/pull/2836
 	MSCs []string `yaml:"mscs"`
 
-	// MSC3861 contains config related to the experimental feature MSC3861. It takes effect only if 'msc3861' is included in 'MSCs' array
+	// MSC3861 contains config related to the experimental feature MSC3861.
+	// It takes effect only if 'msc3861' is included in 'MSCs' array.
 	MSC3861 *MSC3861 `yaml:"msc3861,omitempty"`
 
 	Database DatabaseOptions `yaml:"database,omitempty"`

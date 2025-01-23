@@ -483,7 +483,7 @@ type LocalpartExternalID struct {
 	Localpart    string
 	ExternalID   string
 	AuthProvider string
-	CreatedTs    int64
+	CreatedTS    int64
 }
 
 // UserInfo is for returning information about the user an OpenID token was issued for

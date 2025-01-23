@@ -376,7 +376,7 @@ func Setup(
 			})).Methods(http.MethodPost)
 	} else {
 		// If msc3861 is enabled, these endpoints are either redundant or replaced by Matrix Auth Service (MAS)
-		// Once we migrate to MAS completely, these edndpoints should be removed
+		// Once we migrate to MAS completely, these endpoints should be removed
 
 		v3mux.Handle("/register", httputil.MakeExternalAPI("register", func(req *http.Request) util.JSONResponse {
 			if r := rateLimits.Limit(req, nil); r != nil {

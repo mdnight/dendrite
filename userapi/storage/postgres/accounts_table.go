@@ -116,8 +116,7 @@ func (s *accountsStatements) InsertAccount(
 	localpart string, serverName spec.ServerName,
 	hash, appserviceID string, accountType api.AccountType,
 ) (*api.Account, error) {
-	// TODO: can we replace "UnixNano() / 1M" with "UnixMilli()"?
-	createdTimeMS := time.Now().UnixNano() / 1000000
+	createdTimeMS := spec.AsTimestamp(time.Now())
 	stmt := sqlutil.TxStmt(txn, s.insertAccountStmt)
 
 	var err error

@@ -76,10 +76,10 @@ func (c *ClientAPI) Verify(configErrs *ConfigErrors) {
 	c.RateLimiting.Verify(configErrs)
 
 	if c.MSCs.MSC3861Enabled() {
-		if c.RecaptchaEnabled || !c.RegistrationDisabled {
+		if !c.RegistrationDisabled || c.RecaptchaEnabled {
 			configErrs.Add(
-				"You have enabled the experimental feature MSC3861 which implements the delegated authentication via OIDC." +
-					"As a result, the feature conflicts with the standard Dendrite's registration and login flows and cannot be used if any of those is enabled." +
+				"You have enabled the experimental feature MSC3861 which implements the delegated authentication via OIDC. " +
+					"As a result, the feature conflicts with the standard Dendrite's registration and login flows and cannot be used if any of those is enabled. " +
 					"You need to disable registration (client_api.registration_disabled) and recapthca (client_api.enable_registration_captcha) options to proceed.",
 			)
 		}
