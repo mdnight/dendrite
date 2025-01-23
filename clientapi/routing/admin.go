@@ -551,12 +551,6 @@ func AdminUserDeviceRetrieveCreate(
 
 	switch req.Method {
 	case http.MethodPost:
-		if err != nil {
-			return util.JSONResponse{
-				Code: http.StatusBadRequest,
-				JSON: spec.InvalidParam(userID),
-			}
-		}
 		var payload struct {
 			DeviceID string `json:"device_id"`
 		}
@@ -980,11 +974,10 @@ func AdminRetrieveAccount(req *http.Request, cfg *config.ClientAPI, userAPI user
 				Code: http.StatusNotFound,
 				JSON: spec.NotFound(err.Error()),
 			}
-		} else if err != nil {
-			return util.JSONResponse{
-				Code: http.StatusInternalServerError,
-				JSON: spec.Unknown(err.Error()),
-			}
+		}
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.Unknown(err.Error()),
 		}
 	}
 	body.AvatarURL = profile.AvatarURL

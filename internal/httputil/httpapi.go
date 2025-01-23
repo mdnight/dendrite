@@ -58,6 +58,9 @@ func WithAuth() AuthAPIOption {
 	}
 }
 
+// UserVerifier verifies users by their access tokens. Currently, there are two interface implementations:
+// DefaultUserVerifier and MSC3861UserVerifier. The first one checks if the token exists in the server's database,
+// whereas the latter passes the token for verification to MAS and acts in accordance with MAS's response.
 type UserVerifier interface {
 	// VerifyUserFromRequest authenticates the HTTP request,
 	// on success returns Device of the requester.

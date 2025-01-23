@@ -120,14 +120,14 @@ func (s *syncUserAPI) PerformLastSeenUpdate(ctx context.Context, req *userapi.Pe
 	return nil
 }
 
-type userVerifier struct {
+type mockUserVerifier struct {
 	accessTokenToDeviceAndResponse map[string]struct {
 		Device   *userapi.Device
 		Response *util.JSONResponse
 	}
 }
 
-func (u *userVerifier) VerifyUserFromRequest(req *http.Request) (*userapi.Device, *util.JSONResponse) {
+func (u *mockUserVerifier) VerifyUserFromRequest(req *http.Request) (*userapi.Device, *util.JSONResponse) {
 	if pair, ok := u.accessTokenToDeviceAndResponse[req.URL.Query().Get("access_token")]; ok {
 		return pair.Device, pair.Response
 	}
@@ -161,7 +161,7 @@ func testSyncAccessTokens(t *testing.T, dbType test.DBType) {
 	jsctx, _ := natsInstance.Prepare(processCtx, &cfg.Global.JetStream)
 	defer jetstream.DeleteAllStreams(jsctx, &cfg.Global.JetStream)
 	msgs := toNATSMsgs(t, cfg, room.Events()...)
-	uv := &userVerifier{}
+	uv := &mockUserVerifier{}
 
 	AddPublicRoutes(processCtx, routers, cfg, cm, &natsInstance, &syncUserAPI{accounts: []userapi.Device{alice}}, &syncRoomserverAPI{rooms: []*test.Room{room}}, caches, uv, caching.DisableMetrics)
 	testrig.MustPublishMsgs(t, jsctx, msgs...)
@@ -284,7 +284,7 @@ func testSyncEventFormatPowerLevels(t *testing.T, dbType test.DBType) {
 	cm := sqlutil.NewConnectionManager(processCtx, cfg.Global.DatabaseOptions)
 	caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
 	natsInstance := jetstream.NATSInstance{}
-	uv := userVerifier{
+	uv := mockUserVerifier{
 		accessTokenToDeviceAndResponse: map[string]struct {
 			Device   *userapi.Device
 			Response *util.JSONResponse
@@ -538,7 +538,7 @@ func testSyncAPIUpdatePresenceImmediately(t *testing.T, dbType test.DBType) {
 
 	jsctx, _ := natsInstance.Prepare(processCtx, &cfg.Global.JetStream)
 	defer jetstream.DeleteAllStreams(jsctx, &cfg.Global.JetStream)
-	uv := userVerifier{
+	uv := mockUserVerifier{
 		accessTokenToDeviceAndResponse: map[string]struct {
 			Device   *userapi.Device
 			Response *util.JSONResponse
@@ -668,7 +668,7 @@ func testHistoryVisibility(t *testing.T, dbType test.DBType) {
 		// Use the actual internal roomserver API
 		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 		rsAPI.SetFederationAPI(nil, nil)
-		uv := userVerifier{
+		uv := mockUserVerifier{
 			accessTokenToDeviceAndResponse: map[string]struct {
 				Device   *userapi.Device
 				Response *util.JSONResponse
@@ -946,7 +946,7 @@ func TestGetMembership(t *testing.T) {
 		// Use an actual roomserver for this
 		rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 		rsAPI.SetFederationAPI(nil, nil)
-		uv := userVerifier{
+		uv := mockUserVerifier{
 			accessTokenToDeviceAndResponse: map[string]struct {
 				Device   *userapi.Device
 				Response *util.JSONResponse
@@ -1023,7 +1023,7 @@ func testSendToDevice(t *testing.T, dbType test.DBType) {
 	caches := caching.NewRistrettoCache(128*1024*1024, time.Hour, caching.DisableMetrics)
 	defer close()
 	natsInstance := jetstream.NATSInstance{}
-	uv := userVerifier{
+	uv := mockUserVerifier{
 		accessTokenToDeviceAndResponse: map[string]struct {
 			Device   *userapi.Device
 			Response *util.JSONResponse
@@ -1257,7 +1257,7 @@ func testContext(t *testing.T, dbType test.DBType) {
 	rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 	rsAPI.SetFederationAPI(nil, nil)
 
-	uv := userVerifier{
+	uv := mockUserVerifier{
 		accessTokenToDeviceAndResponse: map[string]struct {
 			Device   *userapi.Device
 			Response *util.JSONResponse
@@ -1445,7 +1445,7 @@ func TestRemoveEditedEventFromSearchIndex(t *testing.T) {
 
 	rsAPI := roomserver.NewInternalAPI(processCtx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 	rsAPI.SetFederationAPI(nil, nil)
-	uv := userVerifier{
+	uv := mockUserVerifier{
 		accessTokenToDeviceAndResponse: map[string]struct {
 			Device   *userapi.Device
 			Response *util.JSONResponse

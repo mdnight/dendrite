@@ -354,14 +354,13 @@ func (m *MSC3861UserVerifier) introspectToken(ctx context.Context, token string)
 	if err != nil {
 		return nil, err
 	}
-	body := resp.Body
 	defer resp.Body.Close() // nolint: errcheck
 
 	if c := resp.StatusCode; c/100 != 2 {
 		return nil, errors.New(strings.Join([]string{"The introspection endpoint returned a '", resp.Status, "' response"}, ""))
 	}
 	var ir introspectionResponse
-	if err := json.NewDecoder(body).Decode(&ir); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&ir); err != nil {
 		return nil, err
 	}
 	return &ir, nil
