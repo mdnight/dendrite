@@ -97,9 +97,9 @@ func TestVerifyUserFromRequest(t *testing.T) {
 		return &resp, nil
 	}
 
-	httpClient := http.Client{
-		Transport: &roundTripper{roundTrip: roundTrip},
-	}
+	httpClient := fclient.NewClient(
+		fclient.WithTransport(&roundTripper{roundTrip: roundTrip}),
+	)
 
 	ctx := context.Background()
 	test.WithAllDatabases(t, func(t *testing.T, dbType test.DBType) {
@@ -125,7 +125,7 @@ func TestVerifyUserFromRequest(t *testing.T) {
 			cfg.Global.ServerName,
 			cfg.MSCs.MSC3861,
 			false,
-			&httpClient,
+			httpClient,
 		)
 		if err != nil {
 			t.Fatal(err.Error())
