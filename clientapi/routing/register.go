@@ -66,10 +66,16 @@ type sessionsDict struct {
 	// If a UIA session is started by trying to delete device1, and then UIA is completed by deleting device2,
 	// the delete request will fail for device2 since the UIA was initiated by trying to delete device1.
 	deleteSessionToDeviceID map[string]string
+	// allowedForCrossSigningKeysReplacement is a collection of sessions that MAS has authorised for updating
+	// cross-signing keys without UIA.
+	allowedForCrossSigningKeysReplacement map[string]*time.Timer
 }
 
 // defaultTimeout is the timeout used to clean up sessions
 const defaultTimeOut = time.Minute * 5
+
+// allowedForCrossSigningKeysReplacementDuration is the timeout used for replacing cross signing keys without UIA
+const allowedForCrossSigningKeysReplacementDuration = time.Minute * 10
 
 // getCompletedStages returns the completed stages for a session.
 func (d *sessionsDict) getCompletedStages(sessionID string) []authtypes.LoginType {
@@ -119,13 +125,54 @@ func (d *sessionsDict) deleteSession(sessionID string) {
 	}
 }
 
+func (d *sessionsDict) allowCrossSigningKeysReplacement(userID string) int64 {
+	d.Lock()
+	defer d.Unlock()
+	ts := time.Now().Add(allowedForCrossSigningKeysReplacementDuration).UnixMilli()
+	t, ok := d.allowedForCrossSigningKeysReplacement[userID]
+	if ok {
+		t.Reset(allowedForCrossSigningKeysReplacementDuration)
+		return ts
+	}
+	d.allowedForCrossSigningKeysReplacement[userID] = time.AfterFunc(
+		allowedForCrossSigningKeysReplacementDuration,
+		func() {
+			d.restrictCrossSigningKeysReplacement(userID)
+		},
+	)
+	return ts
+}
+
+func (d *sessionsDict) isCrossSigningKeysReplacementAllowed(userID string) bool {
+	d.RLock()
+	defer d.RUnlock()
+	_, ok := d.allowedForCrossSigningKeysReplacement[userID]
+	return ok
+}
+
+func (d *sessionsDict) restrictCrossSigningKeysReplacement(userID string) {
+	d.Lock()
+	defer d.Unlock()
+	t, ok := d.allowedForCrossSigningKeysReplacement[userID]
+	if ok {
+		if !t.Stop() {
+			select {
+			case <-t.C:
+			default:
+			}
+		}
+		delete(d.allowedForCrossSigningKeysReplacement, userID)
+	}
+}
+
 func newSessionsDict() *sessionsDict {
 	return &sessionsDict{
-		sessions:                make(map[string][]authtypes.LoginType),
-		sessionCompletedResult:  make(map[string]registerResponse),
-		params:                  make(map[string]registerRequest),
-		timer:                   make(map[string]*time.Timer),
-		deleteSessionToDeviceID: make(map[string]string),
+		sessions:                              make(map[string][]authtypes.LoginType),
+		sessionCompletedResult:                make(map[string]registerResponse),
+		params:                                make(map[string]registerRequest),
+		timer:                                 make(map[string]*time.Timer),
+		deleteSessionToDeviceID:               make(map[string]string),
+		allowedForCrossSigningKeysReplacement: make(map[string]*time.Timer),
 	}
 }
 

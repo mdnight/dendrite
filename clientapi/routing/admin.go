@@ -35,10 +35,6 @@ import (
 	"github.com/element-hq/dendrite/userapi/storage/shared"
 )
 
-const (
-	replacementPeriod time.Duration = 10 * time.Minute
-)
-
 var (
 	validRegistrationTokenRegex = regexp.MustCompile("^[[:ascii:][:digit:]_]*$")
 	deviceDisplayName           = "OIDC-native client"
@@ -807,27 +803,10 @@ func AdminAllowCrossSigningReplacementWithoutUIA(
 
 	switch req.Method {
 	case http.MethodPost:
-		rq := userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest{
-			UserID:   userID.String(),
-			Duration: replacementPeriod,
-		}
-		var rs userapi.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse
-		err = userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(req.Context(), &rq, &rs)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			util.GetLogger(req.Context()).WithError(err).Error("userAPI.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA")
-			return util.JSONResponse{
-				Code: http.StatusInternalServerError,
-				JSON: spec.Unknown(err.Error()),
-			}
-		} else if errors.Is(err, sql.ErrNoRows) {
-			return util.JSONResponse{
-				Code: http.StatusNotFound,
-				JSON: spec.NotFound("User not found."),
-			}
-		}
+		ts := sessions.allowCrossSigningKeysReplacement(userID.String())
 		return util.JSONResponse{
 			Code: http.StatusOK,
-			JSON: map[string]int64{"updatable_without_uia_before_ms": rs.Timestamp},
+			JSON: map[string]int64{"updatable_without_uia_before_ms": ts},
 		}
 	default:
 		return util.JSONResponse{

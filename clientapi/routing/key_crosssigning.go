@@ -49,11 +49,6 @@ func UploadCrossSigningDeviceKeys(
 		return *resErr
 	}
 
-	sessionID := uploadReq.Auth.Session
-	if sessionID == "" {
-		sessionID = util.RandomString(sessionIDLength)
-	}
-
 	// Query existing keys to determine if UIA is required
 	keyResp := api.QueryKeysResponse{}
 	keyserverAPI.QueryKeys(req.Context(), &api.QueryKeysRequest{
@@ -68,7 +63,6 @@ func UploadCrossSigningDeviceKeys(
 	}
 
 	existingMasterKey, hasMasterKey := keyResp.MasterKeys[device.UserID]
-	requireUIA := true
 
 	if hasMasterKey {
 		if !keysDiffer(existingMasterKey, keyResp, uploadReq, device.UserID) {
@@ -89,10 +83,8 @@ func UploadCrossSigningDeviceKeys(
 				logger.WithError(masterKeyResp.Error).Error("Failed to query master key")
 				return convertKeyError(masterKeyResp.Error)
 			}
-			if k := masterKeyResp.Key; k != nil && k.UpdatableWithoutUIABeforeMs != nil {
-				requireUIA = !(time.Now().UnixMilli() < *k.UpdatableWithoutUIABeforeMs)
-			}
 
+			requireUIA := !sessions.isCrossSigningKeysReplacementAllowed(device.UserID) && masterKeyResp.Key != nil
 			if requireUIA {
 				url := ""
 				if m := cfg.MSCs.MSC3861; m.AccountManagementURL != "" {
@@ -122,9 +114,13 @@ func UploadCrossSigningDeviceKeys(
 					),
 				}
 			}
-			// XXX: is it necessary?
-			sessions.addCompletedSessionStage(sessionID, CrossSigningResetStage)
+			sessions.restrictCrossSigningKeysReplacement(device.UserID)
 		} else {
+			sessionID := uploadReq.Auth.Session
+			if sessionID == "" {
+				sessionID = util.RandomString(sessionIDLength)
+			}
+
 			if uploadReq.Auth.Type != authtypes.LoginTypePassword {
 				return util.JSONResponse{
 					Code: http.StatusUnauthorized,
