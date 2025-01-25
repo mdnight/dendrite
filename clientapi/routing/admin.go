@@ -801,6 +801,23 @@ func AdminAllowCrossSigningReplacementWithoutUIA(
 		}
 	}
 
+	var rs api.QueryAccountByLocalpartResponse
+	err = userAPI.QueryAccountByLocalpart(req.Context(), &api.QueryAccountByLocalpartRequest{
+		Localpart:  userID.Local(),
+		ServerName: userID.Domain(),
+	}, &rs)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		util.GetLogger(req.Context()).WithError(err).Error("userAPI.QueryAccountByLocalpart")
+		return util.JSONResponse{
+			Code: http.StatusInternalServerError,
+			JSON: spec.Unknown(err.Error()),
+		}
+	} else if errors.Is(err, sql.ErrNoRows) {
+		return util.JSONResponse{
+			Code: http.StatusNotFound,
+			JSON: spec.NotFound("User not found."),
+		}
+	}
 	switch req.Method {
 	case http.MethodPost:
 		ts := sessions.allowCrossSigningKeysReplacement(userID.String())

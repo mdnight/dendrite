@@ -2021,16 +2021,10 @@ func TestAdminAllowCrossSigningReplacementWithoutUIA(t *testing.T) {
 				t.Errorf("failed to create account: %s", err)
 			}
 			_ = userAPI.KeyDatabase.StoreCrossSigningKeysForUser(ctx, alice.ID, types.CrossSigningKeyMap{
-				fclient.CrossSigningKeyPurposeMaster: types.CrossSigningKey{
-					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
-				},
-				fclient.CrossSigningKeyPurposeSelfSigning: types.CrossSigningKey{
-					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
-				},
-				fclient.CrossSigningKeyPurposeUserSigning: types.CrossSigningKey{
-					KeyData: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
-				},
-			}, nil)
+				fclient.CrossSigningKeyPurposeMaster:      spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+				fclient.CrossSigningKeyPurposeSelfSigning: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+				fclient.CrossSigningKeyPurposeUserSigning: spec.Base64Bytes("Og7D7+RQS030dOsWEtS/juJLTOVojXk1DoNKadyXWyk"),
+			})
 
 		}
 
