@@ -199,8 +199,7 @@ type StaleDeviceLists interface {
 type CrossSigningKeys interface {
 	SelectCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string) (r types.CrossSigningKeyMap, err error)
 	SelectCrossSigningKeysForUserAndKeyType(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose) (r types.CrossSigningKeyMap, err error)
-	UpsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes, updatableWithoutUIABeforeMs *int64) error
-	UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, txn *sql.Tx, userID string, duration time.Duration) (int64, error)
+	UpsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes) error
 }
 
 type CrossSigningSigs interface {

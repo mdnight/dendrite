@@ -96,16 +96,6 @@ func sanityCheckKey(key fclient.CrossSigningKey, userID string, purpose fclient.
 	return nil
 }
 
-func (a *UserInternalAPI) PerformAllowingMasterCrossSigningKeyReplacementWithoutUIA(
-	ctx context.Context,
-	req *api.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIARequest,
-	res *api.PerformAllowingMasterCrossSigningKeyReplacementWithoutUIAResponse,
-) error {
-	var err error
-	res.Timestamp, err = a.KeyDatabase.UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx, req.UserID, req.Duration)
-	return err
-}
-
 // nolint:gocyclo
 func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.PerformUploadDeviceKeysRequest, res *api.PerformUploadDeviceKeysResponse) {
 	// Find the keys to store.
@@ -124,9 +114,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeMaster] = req.MasterKey
 		for _, key := range req.MasterKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeMaster] = types.CrossSigningKey{
-				KeyData: key,
-			}
+			toStore[fclient.CrossSigningKeyPurposeMaster] = key
 		}
 		hasMasterKey = true
 	}
@@ -142,9 +130,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeSelfSigning] = req.SelfSigningKey
 		for _, key := range req.SelfSigningKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeSelfSigning] = types.CrossSigningKey{
-				KeyData: key,
-			}
+			toStore[fclient.CrossSigningKeyPurposeSelfSigning] = key
 		}
 	}
 
@@ -159,9 +145,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 
 		byPurpose[fclient.CrossSigningKeyPurposeUserSigning] = req.UserSigningKey
 		for _, key := range req.UserSigningKey.Keys { // iterates once, see sanityCheckKey
-			toStore[fclient.CrossSigningKeyPurposeUserSigning] = types.CrossSigningKey{
-				KeyData: key,
-			}
+			toStore[fclient.CrossSigningKeyPurposeUserSigning] = key
 		}
 	}
 
@@ -214,7 +198,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 			changed = true
 			break
 		}
-		if !bytes.Equal(old.KeyData, new.KeyData) {
+		if !bytes.Equal(old, new) {
 			// One of the existing keys for a purpose we already knew about has
 			// changed.
 			changed = true
@@ -226,7 +210,7 @@ func (a *UserInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.
 	}
 
 	// Store the keys.
-	if err := a.KeyDatabase.StoreCrossSigningKeysForUser(ctx, req.UserID, toStore, nil); err != nil {
+	if err := a.KeyDatabase.StoreCrossSigningKeysForUser(ctx, req.UserID, toStore); err != nil {
 		res.Error = &api.KeyError{
 			Err: fmt.Sprintf("a.DB.StoreCrossSigningKeysForUser: %s", err),
 		}

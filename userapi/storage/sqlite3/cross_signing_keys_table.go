@@ -10,9 +10,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
-
-	"github.com/element-hq/dendrite/userapi/storage/sqlite3/deltas"
 
 	"github.com/element-hq/dendrite/internal"
 	"github.com/element-hq/dendrite/internal/sqlutil"
@@ -32,28 +29,22 @@ CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
 `
 
 const selectCrossSigningKeysForUserSQL = "" +
-	"SELECT key_type, key_data, updatable_without_uia_before_ms FROM keyserver_cross_signing_keys" +
+	"SELECT key_type, key_data FROM keyserver_cross_signing_keys" +
 	" WHERE user_id = $1"
 
 const selectCrossSigningKeysForUserAndKeyTypeSQL = "" +
-	"SELECT key_type, key_data, updatable_without_uia_before_ms FROM keyserver_cross_signing_keys" +
+	"SELECT key_type, key_data FROM keyserver_cross_signing_keys" +
 	" WHERE user_id = $1 AND key_type = $2"
 
 const upsertCrossSigningKeysForUserSQL = "" +
-	"INSERT OR REPLACE INTO keyserver_cross_signing_keys (user_id, key_type, key_data, updatable_without_uia_before_ms)" +
-	" VALUES($1, $2, $3, $4)"
-
-const updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL = "" +
-	"UPDATE keyserver_cross_signing_keys" +
-	" SET updatable_without_uia_before_ms = $1" +
-	" WHERE user_id = $2 AND key_type = $3"
+	"INSERT OR REPLACE INTO keyserver_cross_signing_keys (user_id, key_type, key_data)" +
+	" VALUES($1, $2, $3)"
 
 type crossSigningKeysStatements struct {
-	db                                                        *sql.DB
-	selectCrossSigningKeysForUserStmt                         *sql.Stmt
-	selectCrossSigningKeysForUserAndKeyTypeStmt               *sql.Stmt
-	upsertCrossSigningKeysForUserStmt                         *sql.Stmt
-	updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt *sql.Stmt
+	db                                          *sql.DB
+	selectCrossSigningKeysForUserStmt           *sql.Stmt
+	selectCrossSigningKeysForUserAndKeyTypeStmt *sql.Stmt
+	upsertCrossSigningKeysForUserStmt           *sql.Stmt
 }
 
 func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error) {
@@ -65,12 +56,6 @@ func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error)
 		return nil, err
 	}
 	m := sqlutil.NewMigrator(db)
-	m.AddMigrations(
-		sqlutil.Migration{
-			Version: "userapi: add x-signing updatable_without_uia_before_ms",
-			Up:      deltas.UpAddXSigningUpdatableWithoutUIABeforeMs,
-		},
-	)
 	err = m.Up(context.Background())
 	if err != nil {
 		return nil, err
@@ -79,7 +64,6 @@ func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error)
 		{&s.selectCrossSigningKeysForUserStmt, selectCrossSigningKeysForUserSQL},
 		{&s.selectCrossSigningKeysForUserAndKeyTypeStmt, selectCrossSigningKeysForUserAndKeyTypeSQL},
 		{&s.upsertCrossSigningKeysForUserStmt, upsertCrossSigningKeysForUserSQL},
-		{&s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt, updateMasterCrossSigningKeyAllowReplacementWithoutUiaSQL},
 	}.Prepare(db)
 }
 
@@ -95,18 +79,14 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
 	for rows.Next() {
 		var keyTypeInt int16
 		var keyData spec.Base64Bytes
-		var updatableWithoutUiaBeforeMs *int64
-		if err = rows.Scan(&keyTypeInt, &keyData, &updatableWithoutUiaBeforeMs); err != nil {
+		if err = rows.Scan(&keyTypeInt, &keyData); err != nil {
 			return nil, err
 		}
 		keyType, ok := types.KeyTypeIntToPurpose[keyTypeInt]
 		if !ok {
 			return nil, fmt.Errorf("unknown key purpose int %d", keyTypeInt)
 		}
-		r[keyType] = types.CrossSigningKey{
-			UpdatableWithoutUIABeforeMs: updatableWithoutUiaBeforeMs,
-			KeyData:                     keyData,
-		}
+		r[keyType] = keyData
 	}
 	err = rows.Err()
 	return
@@ -128,45 +108,27 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUserAndKeyType(
 	for rows.Next() {
 		var keyTypeInt int16
 		var keyData spec.Base64Bytes
-		var updatableWithoutUIABeforeMs *int64
-		if err = rows.Scan(&keyTypeInt, &keyData, &updatableWithoutUIABeforeMs); err != nil {
+		if err = rows.Scan(&keyTypeInt, &keyData); err != nil {
 			return nil, err
 		}
 		keyType, ok := types.KeyTypeIntToPurpose[keyTypeInt]
 		if !ok {
 			return nil, fmt.Errorf("unknown key purpose int %d", keyTypeInt)
 		}
-		r[keyType] = types.CrossSigningKey{
-			UpdatableWithoutUIABeforeMs: updatableWithoutUIABeforeMs,
-			KeyData:                     keyData,
-		}
+		r[keyType] = keyData
 	}
 	err = rows.Err()
 	return
 }
 
 func (s *crossSigningKeysStatements) UpsertCrossSigningKeysForUser(
-	ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes, updatableWithoutUIABeforeMs *int64,
-) error {
+	ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose, keyData spec.Base64Bytes) error {
 	keyTypeInt, ok := types.KeyTypePurposeToInt[keyType]
 	if !ok {
 		return fmt.Errorf("unknown key purpose %q", keyType)
 	}
-	if _, err := sqlutil.TxStmt(txn, s.upsertCrossSigningKeysForUserStmt).ExecContext(ctx, userID, keyTypeInt, keyData, updatableWithoutUIABeforeMs); err != nil {
+	if _, err := sqlutil.TxStmt(txn, s.upsertCrossSigningKeysForUserStmt).ExecContext(ctx, userID, keyTypeInt, keyData); err != nil {
 		return fmt.Errorf("s.upsertCrossSigningKeysForUserStmt: %w", err)
 	}
 	return nil
-}
-
-func (s *crossSigningKeysStatements) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, txn *sql.Tx, userID string, duration time.Duration) (int64, error) {
-	keyTypeInt := types.KeyTypePurposeToInt[fclient.CrossSigningKeyPurposeMaster]
-	ts := time.Now().Add(duration).UnixMilli()
-	result, err := sqlutil.TxStmt(txn, s.updateMasterCrossSigningKeyAllowReplacementWithoutUiaStmt).ExecContext(ctx, ts, userID, keyTypeInt)
-	if err != nil {
-		return -1, err
-	}
-	if n, _ := result.RowsAffected(); n == 0 {
-		return -1, sql.ErrNoRows
-	}
-	return ts, nil
 }

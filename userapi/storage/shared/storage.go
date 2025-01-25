@@ -1136,12 +1136,12 @@ func (d *KeyDatabase) CrossSigningKeysForUser(ctx context.Context, userID string
 	}
 	results := map[fclient.CrossSigningKeyPurpose]fclient.CrossSigningKey{}
 	for purpose, key := range keyMap {
-		keyID := gomatrixserverlib.KeyID("ed25519:" + key.KeyData.Encode())
+		keyID := gomatrixserverlib.KeyID("ed25519:" + key.Encode())
 		result := fclient.CrossSigningKey{
 			UserID: userID,
 			Usage:  []fclient.CrossSigningKeyPurpose{purpose},
 			Keys: map[gomatrixserverlib.KeyID]spec.Base64Bytes{
-				keyID: key.KeyData,
+				keyID: key,
 			},
 		}
 		sigMap, err := d.CrossSigningSigsTable.SelectCrossSigningSigsForTarget(ctx, nil, userID, userID, keyID)
@@ -1183,27 +1183,15 @@ func (d *KeyDatabase) CrossSigningSigsForTarget(ctx context.Context, originUserI
 }
 
 // StoreCrossSigningKeysForUser stores the latest known cross-signing keys for a user.
-func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap, updatableWithoutUIABeforeMs *int64) error {
+func (d *KeyDatabase) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap types.CrossSigningKeyMap) error {
 	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
 		for keyType, key := range keyMap {
-			if err := d.CrossSigningKeysTable.UpsertCrossSigningKeysForUser(ctx, txn, userID, keyType, key.KeyData, key.UpdatableWithoutUIABeforeMs); err != nil {
+			if err := d.CrossSigningKeysTable.UpsertCrossSigningKeysForUser(ctx, txn, userID, keyType, key); err != nil {
 				return fmt.Errorf("d.CrossSigningKeysTable.InsertCrossSigningKeysForUser: %w", err)
 			}
 		}
 		return nil
 	})
-}
-
-// UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA updates the 'updatable_without_uia_before_ms' attribute of the master cross-signing key.
-// Normally this attribute depending on its value marks the master key as replaceable without UIA.
-func (d *KeyDatabase) UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx context.Context, userID string, duration time.Duration) (int64, error) {
-	var ts int64
-	err := d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
-		var err error
-		ts, err = d.CrossSigningKeysTable.UpdateMasterCrossSigningKeyAllowReplacementWithoutUIA(ctx, txn, userID, duration)
-		return err
-	})
-	return ts, err
 }
 
 // StoreCrossSigningSigsForTarget stores a signature for a target user ID and key/device.

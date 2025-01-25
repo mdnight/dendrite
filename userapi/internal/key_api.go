@@ -243,7 +243,7 @@ func (a *UserInternalAPI) QueryMasterKeys(ctx context.Context, req *api.QueryMas
 		return
 	}
 	if key, ok := crossSigningKeyMap[fclient.CrossSigningKeyPurposeMaster]; ok {
-		res.Key = &key
+		res.Key = key
 	}
 }
 
