@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/element-hq/dendrite/userapi/types"
-
 	"github.com/element-hq/dendrite/setup/config"
 	"github.com/element-hq/dendrite/test"
 	"github.com/element-hq/dendrite/test/testrig"
@@ -134,9 +132,7 @@ func Test_UploadCrossSigningDeviceKeys_Unauthorised(t *testing.T) {
 		},
 		queryMasterKeysData: map[string]api.QueryMasterKeysResponse{
 			"@user:example.com": {
-				Key: &types.CrossSigningKey{
-					KeyData: spec.Base64Bytes("key1"),
-				},
+				Key: spec.Base64Bytes("key1"),
 			},
 		},
 	}
@@ -200,9 +196,7 @@ func Test_UploadCrossSigningDeviceKeys_ExistingKeysMismatch(t *testing.T) {
 		},
 		queryMasterKeysData: map[string]api.QueryMasterKeysResponse{
 			"@user:example.com": {
-				Key: &types.CrossSigningKey{
-					KeyData: spec.Base64Bytes("different_key"),
-				},
+				Key: spec.Base64Bytes("different_key"),
 			},
 		},
 	}
