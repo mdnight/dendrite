@@ -7,6 +7,8 @@
 package mediaapi
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/element-hq/dendrite/internal/httputil"
 	"github.com/element-hq/dendrite/internal/sqlutil"
 	"github.com/element-hq/dendrite/mediaapi/routing"
@@ -14,7 +16,6 @@ import (
 	"github.com/element-hq/dendrite/setup/config"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/fclient"
-	"github.com/sirupsen/logrus"
 )
 
 // AddPublicRoutes sets up and registers HTTP handlers for the MediaAPI component.
