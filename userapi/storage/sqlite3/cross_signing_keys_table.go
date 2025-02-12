@@ -32,19 +32,14 @@ const selectCrossSigningKeysForUserSQL = "" +
 	"SELECT key_type, key_data FROM keyserver_cross_signing_keys" +
 	" WHERE user_id = $1"
 
-const selectCrossSigningKeysForUserAndKeyTypeSQL = "" +
-	"SELECT key_type, key_data FROM keyserver_cross_signing_keys" +
-	" WHERE user_id = $1 AND key_type = $2"
-
 const upsertCrossSigningKeysForUserSQL = "" +
 	"INSERT OR REPLACE INTO keyserver_cross_signing_keys (user_id, key_type, key_data)" +
 	" VALUES($1, $2, $3)"
 
 type crossSigningKeysStatements struct {
-	db                                          *sql.DB
-	selectCrossSigningKeysForUserStmt           *sql.Stmt
-	selectCrossSigningKeysForUserAndKeyTypeStmt *sql.Stmt
-	upsertCrossSigningKeysForUserStmt           *sql.Stmt
+	db                                *sql.DB
+	selectCrossSigningKeysForUserStmt *sql.Stmt
+	upsertCrossSigningKeysForUserStmt *sql.Stmt
 }
 
 func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error) {
@@ -62,7 +57,6 @@ func NewSqliteCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error)
 	}
 	return s, sqlutil.StatementList{
 		{&s.selectCrossSigningKeysForUserStmt, selectCrossSigningKeysForUserSQL},
-		{&s.selectCrossSigningKeysForUserAndKeyTypeStmt, selectCrossSigningKeysForUserAndKeyTypeSQL},
 		{&s.upsertCrossSigningKeysForUserStmt, upsertCrossSigningKeysForUserSQL},
 	}.Prepare(db)
 }
@@ -75,35 +69,6 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
 		return nil, err
 	}
 	defer internal.CloseAndLogIfError(ctx, rows, "selectCrossSigningKeysForUserStmt: rows.close() failed")
-	r = types.CrossSigningKeyMap{}
-	for rows.Next() {
-		var keyTypeInt int16
-		var keyData spec.Base64Bytes
-		if err = rows.Scan(&keyTypeInt, &keyData); err != nil {
-			return nil, err
-		}
-		keyType, ok := types.KeyTypeIntToPurpose[keyTypeInt]
-		if !ok {
-			return nil, fmt.Errorf("unknown key purpose int %d", keyTypeInt)
-		}
-		r[keyType] = keyData
-	}
-	err = rows.Err()
-	return
-}
-
-func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUserAndKeyType(
-	ctx context.Context, txn *sql.Tx, userID string, keyType fclient.CrossSigningKeyPurpose,
-) (r types.CrossSigningKeyMap, err error) {
-	keyTypeInt, ok := types.KeyTypePurposeToInt[keyType]
-	if !ok {
-		return nil, fmt.Errorf("unknown key purpose %q", keyType)
-	}
-	rows, err := sqlutil.TxStmt(txn, s.selectCrossSigningKeysForUserAndKeyTypeStmt).QueryContext(ctx, userID, keyTypeInt)
-	if err != nil {
-		return nil, err
-	}
-	defer internal.CloseAndLogIfError(ctx, rows, "SelectCrossSigningKeysForUserAndKeyType: rows.close() failed")
 	r = types.CrossSigningKeyMap{}
 	for rows.Next() {
 		var keyTypeInt int16

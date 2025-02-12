@@ -672,7 +672,6 @@ type QueryAccountByLocalpartResponse struct {
 type ClientKeyAPI interface {
 	UploadDeviceKeysAPI
 	QueryKeys(ctx context.Context, req *QueryKeysRequest, res *QueryKeysResponse)
-	QueryMasterKeys(ctx context.Context, req *QueryMasterKeysRequest, res *QueryMasterKeysResponse)
 	PerformUploadKeys(ctx context.Context, req *PerformUploadKeysRequest, res *PerformUploadKeysResponse) error
 
 	PerformUploadDeviceSignatures(ctx context.Context, req *PerformUploadDeviceSignaturesRequest, res *PerformUploadDeviceSignaturesResponse)
@@ -930,16 +929,6 @@ type QueryKeysResponse struct {
 	MasterKeys      map[string]fclient.CrossSigningKey
 	SelfSigningKeys map[string]fclient.CrossSigningKey
 	UserSigningKeys map[string]fclient.CrossSigningKey
-	// Set if there was a fatal error processing this query
-	Error *KeyError
-}
-
-type QueryMasterKeysRequest struct {
-	UserID string
-}
-
-type QueryMasterKeysResponse struct {
-	Key spec.Base64Bytes
 	// Set if there was a fatal error processing this query
 	Error *KeyError
 }

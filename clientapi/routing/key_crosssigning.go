@@ -31,7 +31,6 @@ type crossSigningRequest struct {
 
 type UploadKeysAPI interface {
 	QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse)
-	QueryMasterKeys(ctx context.Context, req *api.QueryMasterKeysRequest, res *api.QueryMasterKeysResponse)
 	api.UploadDeviceKeysAPI
 }
 
@@ -76,15 +75,7 @@ func UploadCrossSigningDeviceKeys(
 
 		// With MSC3861, UIA is not possible. Instead, the auth service has to explicitly mark the master key as replaceable.
 		if cfg.MSCs.MSC3861Enabled() {
-			masterKeyResp := api.QueryMasterKeysResponse{}
-			keyserverAPI.QueryMasterKeys(req.Context(), &api.QueryMasterKeysRequest{UserID: device.UserID}, &masterKeyResp)
-
-			if masterKeyResp.Error != nil {
-				logger.WithError(masterKeyResp.Error).Error("Failed to query master key")
-				return convertKeyError(masterKeyResp.Error)
-			}
-
-			requireUIA := !sessions.isCrossSigningKeysReplacementAllowed(device.UserID) && masterKeyResp.Key != nil
+			requireUIA := !sessions.isCrossSigningKeysReplacementAllowed(device.UserID)
 			if requireUIA {
 				url := ""
 				if m := cfg.MSCs.MSC3861; m.AccountManagementURL != "" {

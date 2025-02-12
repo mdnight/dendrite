@@ -1172,11 +1172,6 @@ func (d *KeyDatabase) CrossSigningKeysDataForUser(ctx context.Context, userID st
 	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, nil, userID)
 }
 
-// CrossSigningKeysForUserAndKeyType returns the latest known cross-signing keys for a user and key type, if any.
-func (d *KeyDatabase) CrossSigningKeysDataForUserAndKeyType(ctx context.Context, userID string, keyType fclient.CrossSigningKeyPurpose) (types.CrossSigningKeyMap, error) {
-	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUserAndKeyType(ctx, nil, userID, keyType)
-}
-
 // CrossSigningSigsForTarget returns the signatures for a given user's key ID, if any.
 func (d *KeyDatabase) CrossSigningSigsForTarget(ctx context.Context, originUserID, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (types.CrossSigningSigMap, error) {
 	return d.CrossSigningSigsTable.SelectCrossSigningSigsForTarget(ctx, nil, originUserID, targetUserID, targetKeyID)
