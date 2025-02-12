@@ -22,8 +22,8 @@ import (
 // TODO: add more tests to cover cases related to MSC3861
 
 type mockKeyAPI struct {
-	t                   *testing.T
-	queryKeysData       map[string]api.QueryKeysResponse
+	t             *testing.T
+	queryKeysData map[string]api.QueryKeysResponse
 }
 
 func (m mockKeyAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
