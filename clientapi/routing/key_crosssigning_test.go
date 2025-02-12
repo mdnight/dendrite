@@ -24,7 +24,6 @@ import (
 type mockKeyAPI struct {
 	t                   *testing.T
 	queryKeysData       map[string]api.QueryKeysResponse
-	queryMasterKeysData map[string]api.QueryMasterKeysResponse
 }
 
 func (m mockKeyAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
@@ -33,14 +32,6 @@ func (m mockKeyAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, re
 	res.UserSigningKeys = m.queryKeysData[req.UserID].UserSigningKeys
 	if m.t != nil {
 		m.t.Logf("QueryKeys: %+v => %+v", req, res)
-	}
-}
-
-func (m mockKeyAPI) QueryMasterKeys(ctx context.Context, req *api.QueryMasterKeysRequest, res *api.QueryMasterKeysResponse) {
-	res.Key = m.queryMasterKeysData[req.UserID].Key
-	res.Error = m.queryMasterKeysData[req.UserID].Error
-	if m.t != nil {
-		m.t.Logf("QueryMasterKeys: %+v => %+v", req, res)
 	}
 }
 
@@ -65,9 +56,6 @@ func Test_UploadCrossSigningDeviceKeys_ValidRequest(t *testing.T) {
 
 	keyserverAPI := &mockKeyAPI{
 		queryKeysData: map[string]api.QueryKeysResponse{
-			"@user:example.com": {},
-		},
-		queryMasterKeysData: map[string]api.QueryMasterKeysResponse{
 			"@user:example.com": {},
 		},
 	}
@@ -130,11 +118,6 @@ func Test_UploadCrossSigningDeviceKeys_Unauthorised(t *testing.T) {
 				UserSigningKeys: nil,
 			},
 		},
-		queryMasterKeysData: map[string]api.QueryMasterKeysResponse{
-			"@user:example.com": {
-				Key: spec.Base64Bytes("key1"),
-			},
-		},
 	}
 	device := &api.Device{UserID: "@user:example.com", ID: "device"}
 	cfg := &config.ClientAPI{
@@ -192,11 +175,6 @@ func Test_UploadCrossSigningDeviceKeys_ExistingKeysMismatch(t *testing.T) {
 						Keys:   map[gomatrixserverlib.KeyID]spec.Base64Bytes{"ed25519:1": spec.Base64Bytes("different_key")},
 					},
 				},
-			},
-		},
-		queryMasterKeysData: map[string]api.QueryMasterKeysResponse{
-			"@user:example.com": {
-				Key: spec.Base64Bytes("different_key"),
 			},
 		},
 	}
