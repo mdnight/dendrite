@@ -93,7 +93,7 @@ type UserVerifierProvider struct {
 }
 
 func (u *UserVerifierProvider) VerifyUserFromRequest(req *http.Request) (*userapi.Device, *util.JSONResponse) {
-	return u.VerifyUserFromRequest(req)
+	return u.UserVerifier.VerifyUserFromRequest(req)
 }
 
 func NewUserVerifierProvider(userVerifier httputil.UserVerifier) *UserVerifierProvider {

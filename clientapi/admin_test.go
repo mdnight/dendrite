@@ -1562,7 +1562,7 @@ func TestAdminCheckUsernameAvailable(t *testing.T) {
 				}
 
 				// Nothing more to check, test is done.
-				if tc.wantOK {
+				if !tc.wantOK {
 					return
 				}
 

@@ -32,7 +32,7 @@ type UserInternalAPI interface {
 
 	QuerySearchProfilesAPI // used by p2p demos
 	QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, externalID, authProvider string) (*LocalpartExternalID, error)
-	PerformLocalpartExternalUserIDCreation(ctx context.Context, localpart, externalID, authProvider string) (error)
+	PerformLocalpartExternalUserIDCreation(ctx context.Context, localpart, externalID, authProvider string) error
 }
 
 // api functions required by the appservice api
@@ -667,6 +667,7 @@ type QueryAccountByLocalpartRequest struct {
 type QueryAccountByLocalpartResponse struct {
 	Account *Account
 }
+
 // API functions required by the clientapi
 type ClientKeyAPI interface {
 	UploadDeviceKeysAPI
