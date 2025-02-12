@@ -128,11 +128,11 @@ func (d *sessionsDict) deleteSession(sessionID string) {
 func (d *sessionsDict) allowCrossSigningKeysReplacement(userID string) int64 {
 	d.Lock()
 	defer d.Unlock()
-	ts := time.Now().Add(crossSigningKeysReplacementDuration).UnixMilli()
+	allowedUntilTS := time.Now().Add(crossSigningKeysReplacementDuration).UnixMilli()
 	t, ok := d.crossSigningKeysReplacement[userID]
 	if ok {
 		t.Reset(crossSigningKeysReplacementDuration)
-		return ts
+		return allowedUntilTS
 	}
 	d.crossSigningKeysReplacement[userID] = time.AfterFunc(
 		crossSigningKeysReplacementDuration,
@@ -140,7 +140,7 @@ func (d *sessionsDict) allowCrossSigningKeysReplacement(userID string) int64 {
 			d.restrictCrossSigningKeysReplacement(userID)
 		},
 	)
-	return ts
+	return allowedUntilTS
 }
 
 func (d *sessionsDict) isCrossSigningKeysReplacementAllowed(userID string) bool {

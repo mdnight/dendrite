@@ -349,14 +349,10 @@ func Setup(
 			})).Methods(http.MethodPost)
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}",
 			httputil.MakeServiceAdminAPI("admin_manage_user", m.AdminToken, func(r *http.Request) util.JSONResponse {
-				switch r.Method {
-				case http.MethodGet:
+				if r.Method == http.MethodGet {
 					return AdminRetrieveAccount(r, cfg, userAPI)
-				case http.MethodPut:
-					return AdminCreateOrModifyAccount(r, userAPI, cfg)
-				default:
-					return util.JSONResponse{Code: http.StatusMethodNotAllowed, JSON: nil}
 				}
+				return AdminCreateOrModifyAccount(r, userAPI, cfg)
 			})).Methods(http.MethodPut, http.MethodGet)
 		synapseAdminRouter.Handle("/admin/v2/users/{userID}/devices",
 			httputil.MakeServiceAdminAPI("admin_create_retrieve_user_devices", m.AdminToken, func(r *http.Request) util.JSONResponse {

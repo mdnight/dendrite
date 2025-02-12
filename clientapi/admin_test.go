@@ -1561,16 +1561,19 @@ func TestAdminCheckUsernameAvailable(t *testing.T) {
 					t.Fatalf("expected http status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
 				}
 
+				// Nothing more to check, test is done.
 				if tc.wantOK {
-					b := make(map[string]bool, 1)
-					_ = json.NewDecoder(rec.Body).Decode(&b)
-					available, ok := b["available"]
-					if !ok {
-						t.Fatal("'available' not found in body")
-					}
-					if available != tc.isAvailable {
-						t.Fatalf("expected 'available' to be %t, got %t instead", tc.isAvailable, available)
-					}
+					return
+				}
+
+				b := make(map[string]bool, 1)
+				_ = json.NewDecoder(rec.Body).Decode(&b)
+				available, ok := b["available"]
+				if !ok {
+					t.Fatal("'available' not found in body")
+				}
+				if available != tc.isAvailable {
+					t.Fatalf("expected 'available' to be %t, got %t instead", tc.isAvailable, available)
 				}
 			})
 		}
@@ -2311,7 +2314,7 @@ func TestAdminRetrieveAccount(t *testing.T) {
 		}
 
 		for _, tc := range testCase {
-			t.Run("Retrieve existing account", func(t *testing.T) {
+			t.Run(tc.Name, func(t *testing.T) {
 				req := test.NewRequest(t, http.MethodGet, "/_synapse/admin/v2/users/"+tc.User.ID)
 				req.Header.Set("Authorization", "Bearer "+adminToken)
 

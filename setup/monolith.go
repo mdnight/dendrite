@@ -51,7 +51,7 @@ type Monolith struct {
 	ExtPublicRoomsProvider   api.ExtraPublicRoomsProvider
 	ExtUserDirectoryProvider userapi.QuerySearchProfilesAPI
 
-	UserVerifierProvider *UserVerifierProvider
+	UserVerifierProvider httputil.UserVerifier
 }
 
 // AddAllPublicRoutes attaches all public paths to the given router

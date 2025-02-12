@@ -560,26 +560,24 @@ func AdminUserDeviceRetrieveCreate(
 		}
 
 		userDeviceExists := false
-		{
-			var rs api.QueryDevicesResponse
-			if err = userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
-				logger.WithError(err).Error("QueryDevices")
-				return util.JSONResponse{
-					Code: http.StatusInternalServerError,
-					JSON: spec.InternalServerError{},
-				}
+		var rs api.QueryDevicesResponse
+		if err = userAPI.QueryDevices(req.Context(), &api.QueryDevicesRequest{UserID: userID}, &rs); err != nil {
+			logger.WithError(err).Error("QueryDevices")
+			return util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
 			}
-			if !rs.UserExists {
-				return util.JSONResponse{
-					Code: http.StatusNotFound,
-					JSON: spec.NotFound("Given user ID does not exist"),
-				}
+		}
+		if !rs.UserExists {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: spec.NotFound("Given user ID does not exist"),
 			}
-			for i := range rs.Devices {
-				if d := rs.Devices[i]; d.ID == payload.DeviceID && d.UserID == userID {
-					userDeviceExists = true
-					break
-				}
+		}
+		for i := range rs.Devices {
+			if d := rs.Devices[i]; d.ID == payload.DeviceID && d.UserID == userID {
+				userDeviceExists = true
+				break
 			}
 		}
 

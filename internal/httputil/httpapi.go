@@ -163,7 +163,7 @@ func MakeServiceAdminAPI(
 			}
 		}
 		if token != serviceToken {
-			logger.Debugf("Invalid service token '%s'", token)
+			logger.Debug("Invalid service token")
 			return util.JSONResponse{
 				Code: http.StatusForbidden,
 				JSON: spec.UnknownToken(token),
