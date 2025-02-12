@@ -89,11 +89,11 @@ func (m *Monolith) AddAllPublicRoutes(
 }
 
 type UserVerifierProvider struct {
-	UserVerifier httputil.UserVerifier
+	httputil.UserVerifier
 }
 
 func (u *UserVerifierProvider) VerifyUserFromRequest(req *http.Request) (*userapi.Device, *util.JSONResponse) {
-	return u.UserVerifier.VerifyUserFromRequest(req)
+	return u.VerifyUserFromRequest(req)
 }
 
 func NewUserVerifierProvider(userVerifier httputil.UserVerifier) *UserVerifierProvider {

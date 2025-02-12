@@ -604,13 +604,12 @@ func (a *UserInternalAPI) QueryAccountByLocalpart(ctx context.Context, req *api.
 	return
 }
 
-func (a *UserInternalAPI) PerformLocalpartExternalUserIDCreation(ctx context.Context, req *api.PerformLocalpartExternalUserIDCreationRequest) (err error) {
-	return a.DB.CreateLocalpartExternalID(ctx, req.Localpart, req.ExternalID, req.AuthProvider)
+func (a *UserInternalAPI) PerformLocalpartExternalUserIDCreation(ctx context.Context, localpart, externalID, authProvider string) (err error) {
+	return a.DB.CreateLocalpartExternalID(ctx, localpart, externalID, authProvider)
 }
 
-func (a *UserInternalAPI) QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, req *api.QueryLocalpartExternalIDRequest, res *api.QueryLocalpartExternalIDResponse) (err error) {
-	res.LocalpartExternalID, err = a.DB.GetLocalpartForExternalID(ctx, req.ExternalID, req.AuthProvider)
-	return
+func (a *UserInternalAPI) QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, externalID, authProvider string) (*api.LocalpartExternalID, error) {
+	return a.DB.GetLocalpartForExternalID(ctx, externalID, authProvider)
 }
 
 // Return the appservice 'device' or nil if the token is not an appservice. Returns an error if there was a problem

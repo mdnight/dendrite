@@ -202,17 +202,12 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 	}
 
 	localpart := ""
-	{
-		var rs api.QueryLocalpartExternalIDResponse
-		if err = m.userAPI.QueryExternalUserIDByLocalpartAndProvider(ctx, &api.QueryLocalpartExternalIDRequest{
-			ExternalID:   sub,
-			AuthProvider: externalAuthProvider,
-		}, &rs); err != nil && err != sql.ErrNoRows {
-			return nil, err
-		}
-		if l := rs.LocalpartExternalID; l != nil {
-			localpart = l.Localpart
-		}
+	localpartExternalID, err := m.userAPI.QueryExternalUserIDByLocalpartAndProvider(ctx, sub, externalAuthProvider)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if localpartExternalID != nil {
+		localpart = localpartExternalID.Localpart
 	}
 
 	if localpart == "" {
@@ -253,11 +248,7 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 			}
 		}
 
-		if err = m.userAPI.PerformLocalpartExternalUserIDCreation(ctx, &api.PerformLocalpartExternalUserIDCreationRequest{
-			Localpart:    userID.Local(),
-			ExternalID:   sub,
-			AuthProvider: externalAuthProvider,
-		}); err != nil {
+		if err = m.userAPI.PerformLocalpartExternalUserIDCreation(ctx, userID.Local(), sub, externalAuthProvider); err != nil {
 			logger.WithError(err).Error("PerformLocalpartExternalUserIDCreation")
 			return nil, err
 		}

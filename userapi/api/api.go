@@ -31,8 +31,8 @@ type UserInternalAPI interface {
 	FederationUserAPI
 
 	QuerySearchProfilesAPI // used by p2p demos
-	QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, req *QueryLocalpartExternalIDRequest, res *QueryLocalpartExternalIDResponse) (err error)
-	PerformLocalpartExternalUserIDCreation(ctx context.Context, req *PerformLocalpartExternalUserIDCreationRequest) (err error)
+	QueryExternalUserIDByLocalpartAndProvider(ctx context.Context, externalID, authProvider string) (*LocalpartExternalID, error)
+	PerformLocalpartExternalUserIDCreation(ctx context.Context, localpart, externalID, authProvider string) (error)
 }
 
 // api functions required by the appservice api
@@ -667,22 +667,6 @@ type QueryAccountByLocalpartRequest struct {
 type QueryAccountByLocalpartResponse struct {
 	Account *Account
 }
-
-type QueryLocalpartExternalIDRequest struct {
-	ExternalID   string
-	AuthProvider string
-}
-
-type QueryLocalpartExternalIDResponse struct {
-	LocalpartExternalID *LocalpartExternalID
-}
-
-type PerformLocalpartExternalUserIDCreationRequest struct {
-	Localpart    string
-	ExternalID   string
-	AuthProvider string
-}
-
 // API functions required by the clientapi
 type ClientKeyAPI interface {
 	UploadDeviceKeysAPI
