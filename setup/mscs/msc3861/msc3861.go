@@ -20,6 +20,6 @@ func Enable(m *setup.Monolith) error {
 	if err != nil {
 		return err
 	}
-	m.UserVerifierProvider.UserVerifier = userVerifier
+	m.UserVerifierProvider = setup.NewUserVerifierProvider(userVerifier)
 	return nil
 }

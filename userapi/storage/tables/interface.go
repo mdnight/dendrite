@@ -128,9 +128,9 @@ type StatsTable interface {
 }
 
 type LocalpartExternalIDsTable interface {
-	Select(ctx context.Context, txn *sql.Tx, externalID, authProvider string) (*api.LocalpartExternalID, error)
-	Insert(ctx context.Context, txn *sql.Tx, localpart, externalID, authProvider string) error
-	Delete(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error
+	SelectLocalExternalPartID(ctx context.Context, txn *sql.Tx, externalID, authProvider string) (*api.LocalpartExternalID, error)
+	InsertLocalExternalPartID(ctx context.Context, txn *sql.Tx, localpart, externalID, authProvider string) error
+	DeleteLocalExternalPartID(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error
 }
 
 type NotificationFilter uint32

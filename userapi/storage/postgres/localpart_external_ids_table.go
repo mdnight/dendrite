@@ -67,8 +67,8 @@ func NewPostgresLocalpartExternalIDsTable(db *sql.DB) (tables.LocalpartExternalI
 	}.Prepare(db)
 }
 
-// Select selects an existing OpenID Connect connection from the database
-func (u *localpartExternalIDStatements) Select(ctx context.Context, txn *sql.Tx, externalID, authProvider string) (*api.LocalpartExternalID, error) {
+// SelectLocalExternalPartID selects an existing OpenID Connect connection from the database
+func (u *localpartExternalIDStatements) SelectLocalExternalPartID(ctx context.Context, txn *sql.Tx, externalID, authProvider string) (*api.LocalpartExternalID, error) {
 	ret := api.LocalpartExternalID{
 		ExternalID:   externalID,
 		AuthProvider: authProvider,
@@ -87,15 +87,15 @@ func (u *localpartExternalIDStatements) Select(ctx context.Context, txn *sql.Tx,
 	return &ret, nil
 }
 
-// Insert creates a new record representing an OpenID Connect connection between Matrix and external accounts.
-func (u *localpartExternalIDStatements) Insert(ctx context.Context, txn *sql.Tx, localpart, externalID, authProvider string) error {
+// InsertLocalExternalPartID creates a new record representing an OpenID Connect connection between Matrix and external accounts.
+func (u *localpartExternalIDStatements) InsertLocalExternalPartID(ctx context.Context, txn *sql.Tx, localpart, externalID, authProvider string) error {
 	stmt := sqlutil.TxStmt(txn, u.insertUserExternalIDStmt)
 	_, err := stmt.ExecContext(ctx, localpart, externalID, authProvider, time.Now().Unix())
 	return err
 }
 
-// Delete deletes the existing OpenID Connect connection. After this method is called, the Matrix account will no longer be associated with the external account.
-func (u *localpartExternalIDStatements) Delete(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error {
+// DeleteLocalExternalPartID deletes the existing OpenID Connect connection. After this method is called, the Matrix account will no longer be associated with the external account.
+func (u *localpartExternalIDStatements) DeleteLocalExternalPartID(ctx context.Context, txn *sql.Tx, externalID, authProvider string) error {
 	stmt := sqlutil.TxStmt(txn, u.deleteUserExternalIDStmt)
 	_, err := stmt.ExecContext(ctx, externalID, authProvider)
 	return err

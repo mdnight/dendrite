@@ -907,15 +907,15 @@ func (d *Database) UpsertPusher(
 }
 
 func (d *Database) CreateLocalpartExternalID(ctx context.Context, localpart, externalID, authProvider string) error {
-	return d.LocalpartExternalIDs.Insert(ctx, nil, localpart, externalID, authProvider)
+	return d.LocalpartExternalIDs.InsertLocalExternalPartID(ctx, nil, localpart, externalID, authProvider)
 }
 
 func (d *Database) GetLocalpartForExternalID(ctx context.Context, externalID, authProvider string) (*api.LocalpartExternalID, error) {
-	return d.LocalpartExternalIDs.Select(ctx, nil, externalID, authProvider)
+	return d.LocalpartExternalIDs.SelectLocalExternalPartID(ctx, nil, externalID, authProvider)
 }
 
 func (d *Database) DeleteLocalpartExternalID(ctx context.Context, externalID, authProvider string) error {
-	return d.LocalpartExternalIDs.Delete(ctx, nil, externalID, authProvider)
+	return d.LocalpartExternalIDs.DeleteLocalExternalPartID(ctx, nil, externalID, authProvider)
 }
 
 // GetPushers returns the pushers matching the given localpart.
