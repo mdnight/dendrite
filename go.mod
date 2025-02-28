@@ -47,7 +47,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	golang.org/x/crypto v0.33.0
 	golang.org/x/exp v0.0.0-20250215185904-eff6e970281f
-	golang.org/x/image v0.23.0
+	golang.org/x/image v0.24.0
 	golang.org/x/mobile v0.0.0-20240520174638-fa72addaaa1b
 	golang.org/x/sync v0.11.0
 	golang.org/x/term v0.29.0
