@@ -1637,8 +1637,9 @@ func TestAdminUserDeviceRetrieveCreate(t *testing.T) {
 		t.Run("Retrieve device", func(t *testing.T) {
 			var deviceRes uapi.PerformDeviceCreationResponse
 			if err := userAPI.PerformDeviceCreation(ctx, &uapi.PerformDeviceCreationRequest{
-				Localpart:  alice.Localpart,
-				ServerName: cfg.Global.ServerName,
+				Localpart:                           alice.Localpart,
+				ServerName:                          cfg.Global.ServerName,
+				AccessTokenUniqueConstraintDisabled: true,
 			}, &deviceRes); err != nil {
 				t.Errorf("failed to create account: %s", err)
 			}
@@ -1747,8 +1748,9 @@ func TestAdminUserDeviceDelete(t *testing.T) {
 		t.Run("Delete existing device", func(t *testing.T) {
 			var deviceRes uapi.PerformDeviceCreationResponse
 			if err := userAPI.PerformDeviceCreation(ctx, &uapi.PerformDeviceCreationRequest{
-				Localpart:  alice.Localpart,
-				ServerName: cfg.Global.ServerName,
+				Localpart:                           alice.Localpart,
+				ServerName:                          cfg.Global.ServerName,
+				AccessTokenUniqueConstraintDisabled: true,
 			}, &deviceRes); err != nil {
 				t.Errorf("failed to create account: %s", err)
 			}
@@ -1844,8 +1846,9 @@ func TestAdminUserDevicesDelete(t *testing.T) {
 		t.Run("Delete existing user's devices", func(t *testing.T) {
 			var deviceRes uapi.PerformDeviceCreationResponse
 			if err := userAPI.PerformDeviceCreation(ctx, &uapi.PerformDeviceCreationRequest{
-				Localpart:  alice.Localpart,
-				ServerName: cfg.Global.ServerName,
+				Localpart:                           alice.Localpart,
+				ServerName:                          cfg.Global.ServerName,
+				AccessTokenUniqueConstraintDisabled: true,
 			}, &deviceRes); err != nil {
 				t.Errorf("failed to create account: %s", err)
 			}

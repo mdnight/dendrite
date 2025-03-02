@@ -96,7 +96,8 @@ func (r *mscError) Error() string {
 
 // VerifyUserFromRequest authenticates the HTTP request, on success returns Device of the requester.
 func (m *MSC3861UserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Device, *util.JSONResponse) {
-	util.GetLogger(req.Context()).Debug("MSC3861.VerifyUserFromRequest")
+	ctx := req.Context()
+	util.GetLogger(ctx).Debug("MSC3861.VerifyUserFromRequest")
 	// Try to find the Application Service user
 	token, err := auth.ExtractAccessToken(req)
 	if err != nil {
@@ -105,8 +106,22 @@ func (m *MSC3861UserVerifier) VerifyUserFromRequest(req *http.Request) (*api.Dev
 			JSON: spec.MissingToken(err.Error()),
 		}
 	}
-	// TODO: try to get appservice user first. See https://github.com/element-hq/synapse/blob/develop/synapse/api/auth/msc3861_delegated.py#L273
-	userData, err := m.getUserByAccessToken(req.Context(), token)
+	if appServiceUserID := req.URL.Query().Get("user_id"); appServiceUserID != "" {
+		var res api.QueryAccessTokenResponse
+		err = m.userAPI.QueryAccessToken(ctx, &api.QueryAccessTokenRequest{
+			AccessToken:      token,
+			AppServiceUserID: appServiceUserID,
+		}, &res)
+		if err != nil {
+			util.GetLogger(ctx).WithError(err).Error("userAPI.QueryAccessToken failed")
+			return nil, &util.JSONResponse{
+				Code: http.StatusInternalServerError,
+				JSON: spec.InternalServerError{},
+			}
+		}
+	}
+
+	userData, err := m.getUserByAccessToken(ctx, token)
 	if err != nil {
 		switch e := err.(type) {
 		case (*mscError):
@@ -306,11 +321,12 @@ func (m *MSC3861UserVerifier) getUserByAccessToken(ctx context.Context, token st
 		var rs api.PerformDeviceCreationResponse
 		deviceDisplayName := "OIDC-native client"
 		if err := m.userAPI.PerformDeviceCreation(ctx, &api.PerformDeviceCreationRequest{
-			Localpart:         localpart,
-			ServerName:        m.serverName,
-			AccessToken:       "",
-			DeviceID:          &deviceID,
-			DeviceDisplayName: &deviceDisplayName,
+			Localpart:                           localpart,
+			ServerName:                          m.serverName,
+			AccessToken:                         "",
+			DeviceID:                            &deviceID,
+			DeviceDisplayName:                   &deviceDisplayName,
+			AccessTokenUniqueConstraintDisabled: true,
 			// TODO: Cannot add IPAddr and Useragent values here. Should we care about it here?
 		}, &rs); err != nil {
 			logger.WithError(err).Error("PerformDeviceCreation")

@@ -139,7 +139,7 @@ func TestAppserviceInternalAPI(t *testing.T) {
 		as := &config.ApplicationService{
 			ID:              "someID",
 			URL:             srv.URL,
-			ASToken:         "",
+			ASToken:         util.RandomString(12),
 			HSToken:         "",
 			SenderLocalpart: "senderLocalPart",
 			NamespaceMap: map[string][]config.ApplicationServiceNamespace{
@@ -233,7 +233,7 @@ func TestAppserviceInternalAPI_UnixSocket_Simple(t *testing.T) {
 	as := &config.ApplicationService{
 		ID:              "someID",
 		URL:             fmt.Sprintf("unix://%s", socket),
-		ASToken:         "",
+		ASToken:         util.RandomString(8),
 		HSToken:         "",
 		SenderLocalpart: "senderLocalPart",
 		NamespaceMap: map[string][]config.ApplicationServiceNamespace{
@@ -377,7 +377,7 @@ func TestRoomserverConsumerOneInvite(t *testing.T) {
 		as := &config.ApplicationService{
 			ID:              "someID",
 			URL:             srv.URL,
-			ASToken:         "",
+			ASToken:         util.RandomString(8),
 			HSToken:         "",
 			SenderLocalpart: "senderLocalPart",
 			NamespaceMap: map[string][]config.ApplicationServiceNamespace{
@@ -510,7 +510,7 @@ func TestOutputAppserviceEvent(t *testing.T) {
 		as := &config.ApplicationService{
 			ID:              "someID",
 			URL:             srv.URL,
-			ASToken:         "",
+			ASToken:         util.RandomString(8),
 			HSToken:         "",
 			SenderLocalpart: "senderLocalPart",
 			NamespaceMap: map[string][]config.ApplicationServiceNamespace{

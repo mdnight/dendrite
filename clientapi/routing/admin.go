@@ -584,14 +584,15 @@ func AdminUserDeviceRetrieveCreate(
 		if !userDeviceExists {
 			var rs userapi.PerformDeviceCreationResponse
 			if err = userAPI.PerformDeviceCreation(req.Context(), &userapi.PerformDeviceCreationRequest{
-				Localpart:          local,
-				ServerName:         domain,
-				DeviceID:           &payload.DeviceID,
-				DeviceDisplayName:  &deviceDisplayName,
-				IPAddr:             "",
-				UserAgent:          req.UserAgent(),
-				NoDeviceListUpdate: false,
-				FromRegistration:   false,
+				Localpart:                           local,
+				ServerName:                          domain,
+				DeviceID:                            &payload.DeviceID,
+				DeviceDisplayName:                   &deviceDisplayName,
+				IPAddr:                              "",
+				UserAgent:                           req.UserAgent(),
+				NoDeviceListUpdate:                  false,
+				FromRegistration:                    false,
+				AccessTokenUniqueConstraintDisabled: true,
 			}, &rs); err != nil {
 				logger.WithError(err).Error("PerformDeviceCreation")
 				return util.JSONResponse{

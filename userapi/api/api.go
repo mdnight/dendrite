@@ -381,6 +381,11 @@ type PerformDeviceCreationRequest struct {
 	// FromRegistration determines if this request comes from registering a new account
 	// and is in most cases false.
 	FromRegistration bool
+
+	// AccessTokenUniqueConstraintDisabled determines if unique constraint is applicable for the AccessToken.
+	// It is false if an external auth service is in use (e.g. MAS) and server does not generate its own
+	// auth tokens. Otherwise, if traditional login is in use, the value is true. Default is false.
+	AccessTokenUniqueConstraintDisabled bool
 }
 
 // PerformDeviceCreationResponse is the response for PerformDeviceCreation
