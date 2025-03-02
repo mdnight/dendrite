@@ -1,47 +1,31 @@
-#syntax=docker/dockerfile:1.2
+FROM golang:1.24-bookworm as build
+RUN apt-get update && apt-get install -y postgresql
+WORKDIR /build
+ARG BINARY
 
-#
-# base installs required dependencies and runs go mod download to cache dependencies
-#
-FROM --platform=${BUILDPLATFORM} docker.io/golang:1.22-alpine AS base
-RUN apk --update --no-cache add bash build-base curl git
+# Copy the build context to the repo as this is the right dendrite code. This is different to the
+# Complement Dockerfile which wgets a branch.
+COPY . .
 
-#
-# build creates all needed binaries
-#
-FROM --platform=${BUILDPLATFORM} base AS build
-WORKDIR /src
-ARG TARGETOS
-ARG TARGETARCH
-RUN --mount=target=. \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    USERARCH=`go env GOARCH` \
-    GOARCH="$TARGETARCH" \
-    GOOS="linux" \
-    CGO_ENABLED=$([ "$TARGETARCH" = "$USERARCH" ] && echo "1" || echo "0") \
-    go build -v -trimpath -o /out/ ./cmd/...
+RUN go build ./cmd/${BINARY}
+RUN go build ./cmd/generate-keys
+RUN go build ./cmd/generate-config
+RUN go build ./cmd/create-account
+RUN ./generate-config --ci > dendrite.yaml
+RUN ./generate-keys --private-key matrix_key.pem --tls-cert server.crt --tls-key server.key
 
+# Make sure the SQLite databases are in a persistent location, we're already mapping
+# the postgresql folder so let's just use that for simplicity
+RUN sed -i "s%connection_string:.file:%connection_string: file:\/var\/lib\/postgresql\/15\/main\/%g" dendrite.yaml
 
-#
-# Builds the Dendrite image containing all required binaries
-#
-FROM alpine:latest
-RUN apk --update --no-cache add curl
-LABEL org.opencontainers.image.title="Dendrite"
-LABEL org.opencontainers.image.description="Next-generation Matrix homeserver written in Go"
-LABEL org.opencontainers.image.source="https://github.com/element-hq/dendrite"
-LABEL org.opencontainers.image.licenses="AGPL-3.0-only OR LicenseRef-Element-Commercial"
-LABEL org.opencontainers.image.documentation="https://element-hq.github.io/dendrite/"
-LABEL org.opencontainers.image.vendor="New Vector Ltd."
+# This entry script starts postgres, waits for it to be up then starts dendrite
+RUN echo '\
+sed -i "s/server_name: localhost/server_name: ${SERVER_NAME}/g" dendrite.yaml \n\
+PARAMS="--tls-cert server.crt --tls-key server.key --config dendrite.yaml" \n\
+./${BINARY} --really-enable-open-registration ${PARAMS} || ./${BINARY} ${PARAMS} \n\
+' > run_dendrite.sh && chmod +x run_dendrite.sh
 
-COPY --from=build /out/create-account /usr/bin/create-account
-COPY --from=build /out/generate-config /usr/bin/generate-config
-COPY --from=build /out/generate-keys /usr/bin/generate-keys
-COPY --from=build /out/dendrite /usr/bin/dendrite
-
-VOLUME /etc/dendrite
-WORKDIR /etc/dendrite
-
-ENTRYPOINT ["/usr/bin/dendrite"]
+ENV SERVER_NAME=localhost
+ENV BINARY=dendrite
 EXPOSE 8008 8448
+CMD /build/run_dendrite.sh
