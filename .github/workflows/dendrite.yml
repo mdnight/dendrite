@@ -298,9 +298,9 @@ jobs:
       - name: Build upgrade-tests
         run: go build ./cmd/dendrite-upgrade-tests
       - name: Test upgrade (PostgreSQL)
-        run: ./dendrite-upgrade-tests -repository=matrix-org/dendrite --head .
+        run: ./dendrite-upgrade-tests -repository=mdnight/dendrite --head .
       - name: Test upgrade (SQLite)
-        run: ./dendrite-upgrade-tests --sqlite -repository=matrix-org/dendrite --head .
+        run: ./dendrite-upgrade-tests --sqlite -repository=mdnight/dendrite --head .
 
   # run database upgrade tests, skipping over one version
   upgrade_test_direct:
@@ -310,6 +310,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Clear cache directories
+        run: |
+          rm -rf ~/.cache/go-build
+          rm -rf ~/go/pkg/mod
       - name: Setup go
         uses: actions/setup-go@v5
         with:
@@ -328,9 +332,9 @@ jobs:
       - name: Build upgrade-tests
         run: go build ./cmd/dendrite-upgrade-tests
       - name: Test upgrade (PostgreSQL)
-        run: ./dendrite-upgrade-tests -direct -from HEAD-2 -repository=matrix-org/dendrite --head .
+        run: ./dendrite-upgrade-tests -direct -from HEAD-2 -repository=mdnight/dendrite --head .
       - name: Test upgrade (SQLite)
-        run: ./dendrite-upgrade-tests --sqlite -direct -from HEAD-2 -repository=matrix-org/dendrite --head .
+        run: ./dendrite-upgrade-tests --sqlite -direct -from HEAD-2 -repository=mdnight/dendrite --head .
 
   # run Sytest in different variations
   sytest:
