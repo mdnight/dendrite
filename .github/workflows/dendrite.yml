@@ -103,6 +103,10 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+      - name: Clear cache directories
+        run: |
+          rm -rf ~/.cache/go-build
+          rm -rf ~/go/pkg/mod
       - name: Install libolm
         run: sudo apt-get install libolm-dev libolm3
       - name: Setup go
