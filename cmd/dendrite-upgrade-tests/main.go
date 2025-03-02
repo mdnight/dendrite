@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/codeclysm/extract"
+	extract "github.com/codeclysm/extract/v4"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
