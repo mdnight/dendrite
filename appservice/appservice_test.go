@@ -1,4 +1,4 @@
-package appservice_test
+package appservice
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
 
-	"github.com/element-hq/dendrite/appservice"
 	"github.com/element-hq/dendrite/appservice/api"
 	"github.com/element-hq/dendrite/appservice/consumers"
 	"github.com/element-hq/dendrite/internal/caching"
@@ -160,7 +159,7 @@ func TestAppserviceInternalAPI(t *testing.T) {
 		rsAPI := roomserver.NewInternalAPI(ctx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 		rsAPI.SetFederationAPI(nil, nil)
 		usrAPI := userapi.NewInternalAPI(ctx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
-		asAPI := appservice.NewInternalAPI(ctx, cfg, &natsInstance, usrAPI, rsAPI)
+		asAPI := NewInternalAPI(ctx, cfg, &natsInstance, usrAPI, rsAPI)
 
 		runCases(t, asAPI)
 	})
@@ -255,7 +254,7 @@ func TestAppserviceInternalAPI_UnixSocket_Simple(t *testing.T) {
 	rsAPI := roomserver.NewInternalAPI(ctx, cfg, cm, &natsInstance, caches, caching.DisableMetrics)
 	rsAPI.SetFederationAPI(nil, nil)
 	usrAPI := userapi.NewInternalAPI(ctx, cfg, cm, &natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
-	asAPI := appservice.NewInternalAPI(ctx, cfg, &natsInstance, usrAPI, rsAPI)
+	asAPI := NewInternalAPI(ctx, cfg, &natsInstance, usrAPI, rsAPI)
 
 	t.Run("UserIDExists", func(t *testing.T) {
 		testUserIDExists(t, asAPI, "@as-testing:test", true)
@@ -395,7 +394,7 @@ func TestRoomserverConsumerOneInvite(t *testing.T) {
 		rsAPI.SetFederationAPI(nil, nil)
 		usrAPI := userapi.NewInternalAPI(processCtx, cfg, cm, natsInstance, rsAPI, nil, caching.DisableMetrics, testIsBlacklistedOrBackingOff)
 		// start the consumer
-		appservice.NewInternalAPI(processCtx, cfg, natsInstance, usrAPI, rsAPI)
+		NewInternalAPI(processCtx, cfg, natsInstance, usrAPI, rsAPI)
 
 		// Create the room
 		if err := rsapi.SendEvents(context.Background(), rsAPI, rsapi.KindNew, room.Events(), "test", "test", "test", nil, false); err != nil {
@@ -540,7 +539,7 @@ func TestOutputAppserviceEvent(t *testing.T) {
 		syncapi.AddPublicRoutes(processCtx, routers, cfg, cm, natsInstance, usrAPI, rsAPI, caches, caching.DisableMetrics)
 
 		// start the consumer
-		appservice.NewInternalAPI(processCtx, cfg, natsInstance, usrAPI, rsAPI)
+		NewInternalAPI(processCtx, cfg, natsInstance, usrAPI, rsAPI)
 
 		// At this point, the old JetStream consumers should be deleted
 		for consumer := range jsCtx.Consumers(cfg.Global.JetStream.Prefixed(jetstream.OutputRoomEvent)) {

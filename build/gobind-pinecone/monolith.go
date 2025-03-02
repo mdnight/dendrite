@@ -164,7 +164,7 @@ func (m *DendriteMonolith) SetRelayServers(nodeID string, uris string) {
 
 		nodeKey, err := getServerKeyFromString(uri)
 		if err != nil {
-			logrus.Errorf(err.Error())
+			logrus.Error(err.Error())
 			continue
 		}
 		relays = append(relays, nodeKey)
@@ -172,7 +172,7 @@ func (m *DendriteMonolith) SetRelayServers(nodeID string, uris string) {
 
 	nodeKey, err := getServerKeyFromString(nodeID)
 	if err != nil {
-		logrus.Errorf(err.Error())
+		logrus.Error(err.Error())
 		return
 	}
 
@@ -192,7 +192,7 @@ func (m *DendriteMonolith) SetRelayServers(nodeID string, uris string) {
 func (m *DendriteMonolith) GetRelayServers(nodeID string) string {
 	nodeKey, err := getServerKeyFromString(nodeID)
 	if err != nil {
-		logrus.Errorf(err.Error())
+		logrus.Error(err.Error())
 		return ""
 	}
 
