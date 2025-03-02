@@ -6,7 +6,7 @@ require (
 	github.com/MFAshby/stdemuxerhook v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/blevesearch/bleve/v2 v2.4.4
-	github.com/codeclysm/extract v2.2.0+incompatible
+	github.com/codeclysm/extract/v4 v4.0.0
 	github.com/coder/websocket v1.8.12
 	github.com/cretz/bine v0.2.0
 	github.com/dgraph-io/ristretto v0.2.0
@@ -133,6 +133,7 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.mau.fi/util v0.8.5 // indirect
