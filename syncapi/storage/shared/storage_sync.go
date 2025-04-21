@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/matrix-org/gomatrixserverlib/spec"
 	"github.com/tidwall/gjson"
@@ -794,7 +795,7 @@ func (d *DatabaseTransaction) RelationsFor(ctx context.Context, roomID, eventID,
 	// event off the end if needs be.
 	if len(entries) > limit {
 		entries = entries[:len(entries)-1]
-		nextBatch = fmt.Sprintf("%d", entries[len(entries)-1].Position)
+		nextBatch = strconv.FormatInt(int64(entries[len(entries)-1].Position), 10)
 	}
 	// TODO: set prevBatch? doesn't seem to affect the tests...
 
@@ -811,3 +812,7 @@ func (d *DatabaseTransaction) RelationsFor(ctx context.Context, roomID, eventID,
 
 	return events, prevBatch, nextBatch, nil
 }
+
+// *******************************************************************************
+// Sliding sync section
+// *******************************************************************************

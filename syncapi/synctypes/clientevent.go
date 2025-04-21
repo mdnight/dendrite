@@ -341,7 +341,7 @@ func updatePowerLevelEvent(userIDForSender spec.UserIDForSender, se gomatrixserv
 
 	newEv := se.JSON()
 
-	usersField := gjson.GetBytes(se.JSON(), "content.users")
+	usersField := gjson.GetBytes(se.JSON(), "users")
 	if usersField.Exists() {
 		pls, err := gomatrixserverlib.NewPowerLevelContentFromEvent(se)
 		if err != nil {
@@ -366,7 +366,7 @@ func updatePowerLevelEvent(userIDForSender spec.UserIDForSender, se gomatrixserv
 		if err != nil {
 			return nil, err
 		}
-		newEv, err = sjson.SetRawBytes(se.JSON(), "content.users", newPlBytes)
+		newEv, err = sjson.SetRawBytes(se.JSON(), "users", newPlBytes)
 		if err != nil {
 			return nil, err
 		}

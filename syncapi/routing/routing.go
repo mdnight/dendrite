@@ -18,6 +18,7 @@ import (
 	"github.com/element-hq/dendrite/internal/httputil"
 	"github.com/element-hq/dendrite/roomserver/api"
 	"github.com/element-hq/dendrite/setup/config"
+	"github.com/element-hq/dendrite/syncapi/slidingsync/sync3/handler"
 	"github.com/element-hq/dendrite/syncapi/storage"
 	"github.com/element-hq/dendrite/syncapi/sync"
 	userapi "github.com/element-hq/dendrite/userapi/api"
@@ -36,9 +37,14 @@ func Setup(
 	lazyLoadCache caching.LazyLoadCache,
 	fts fulltext.Indexer,
 	rateLimits *httputil.RateLimits,
+	slidingSyncHandler *handler.SyncLiveHandler,
 ) {
 	v1unstablemux := csMux.PathPrefix("/{apiversion:(?:v1|unstable)}/").Subrouter()
 	v3mux := csMux.PathPrefix("/{apiversion:(?:r0|v3)}/").Subrouter()
+
+	v1unstablemux.Handle("/org.matrix.simplified_msc3575/sync", httputil.MakeAuthAPI("simplified_msc3575_sync", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+		return slidingSyncHandler.OnIncomingSyncRequest(req, device)
+	}, httputil.WithAllowGuests())).Methods(http.MethodPost, http.MethodOptions)
 
 	// TODO: Add AS support for all handlers below.
 	v3mux.Handle("/sync", httputil.MakeAuthAPI("sync", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {

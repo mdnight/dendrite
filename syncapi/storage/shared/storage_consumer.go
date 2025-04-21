@@ -32,23 +32,37 @@ import (
 // Database is a temporary struct until we have made syncserver.go the same for both pq/sqlite
 // For now this contains the shared functions
 type Database struct {
-	DB                  *sql.DB
-	Writer              sqlutil.Writer
-	Invites             tables.Invites
-	Peeks               tables.Peeks
-	AccountData         tables.AccountData
-	OutputEvents        tables.Events
-	Topology            tables.Topology
-	CurrentRoomState    tables.CurrentRoomState
-	BackwardExtremities tables.BackwardsExtremities
-	SendToDevice        tables.SendToDevice
-	Filter              tables.Filter
-	Receipts            tables.Receipts
-	Memberships         tables.Memberships
-	NotificationData    tables.NotificationData
-	Ignores             tables.Ignores
-	Presence            tables.Presence
-	Relations           tables.Relations
+	DB                     *sql.DB
+	Writer                 sqlutil.Writer
+	Invites                tables.Invites
+	Peeks                  tables.Peeks
+	AccountData            tables.AccountData
+	OutputEvents           tables.Events
+	Topology               tables.Topology
+	CurrentRoomState       tables.CurrentRoomState
+	BackwardExtremities    tables.BackwardsExtremities
+	SendToDevice           tables.SendToDevice
+	Filter                 tables.Filter
+	Receipts               tables.Receipts
+	Memberships            tables.Memberships
+	NotificationData       tables.NotificationData
+	Ignores                tables.Ignores
+	Presence               tables.Presence
+	Relations              tables.Relations
+	SlidingSyncAccountData tables.SlidingSyncAccountData
+	SlidingSyncRooms       tables.SlidingSyncRooms
+	SlidingSyncUnread      tables.SlidingSyncUnread
+	SlidingSyncInvites     tables.SlidingSyncInvites
+	SlidingSyncTyping      tables.SlidingSyncTyping
+	SlidingSyncEvent       tables.SlidingSyncEvent
+	SlidingSyncTxn         tables.SlidingSyncTxn
+	SlidingSyncToDevice    tables.SlidingSyncToDevice
+	SlidingSyncSpaces      tables.SlidingSyncSpaces
+	SlidingSyncSnapthot    tables.SlidingSyncSnapshot
+	SlidingSyncReceipt     tables.SlidingSyncReceipt
+	SlidingSyncDeviceList  tables.SlidingSyncDeviceList
+	SlidingSyncDeviceData  tables.SlidingSyncDeviceData
+	SlidingSyncDevice      tables.SlidingSyncDevices
 }
 
 func (d *Database) NewDatabaseSnapshot(ctx context.Context) (*DatabaseTransaction, error) {

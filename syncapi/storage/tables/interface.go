@@ -9,6 +9,8 @@ package tables
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"time"
 
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/gomatrixserverlib/spec"
@@ -231,4 +233,113 @@ type Relations interface {
 	// should be if there are no boundaries supplied (i.e. we want to work backwards but don't have a
 	// "from" or want to work forwards and don't have a "to").
 	SelectMaxRelationID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+}
+
+type SlidingSyncRooms interface {
+	SelectRoomInfos(ctx context.Context, txn *sql.Tx) ([]types.SlidingSyncRoomInfo, error)
+	SelectLatestNIDs(ctx context.Context, txn *sql.Tx, roomIDs []string) (map[string]int64, error)
+	SelectCurrentAfterSnapshotID(ctx context.Context, txn *sql.Tx, roomID string) (int64, error)
+	Upsert(ctx context.Context, txn *sql.Tx, info types.SlidingSyncRoomInfo, snapshotID, latestNID int64) error
+}
+
+type SlidingSyncAccountData interface {
+	Insert(ctx context.Context, txn *sql.Tx, accDatas []types.SlidingSyncAccountData) ([]types.SlidingSyncAccountData, error)
+	Select(ctx context.Context, txn *sql.Tx, userID string, eventTypes []string, roomID string) (datas []types.SlidingSyncAccountData, err error)
+	SelectWithType(ctx context.Context, txn *sql.Tx, userID, dataType string) (datas []types.SlidingSyncAccountData, err error)
+	SelectMany(ctx context.Context, txn *sql.Tx, userID string, roomIDs []string) (datas []types.SlidingSyncAccountData, err error)
+}
+
+type SlidingSyncEvent interface {
+	SelectHighestNID(ctx context.Context) (int64, error)
+	Insert(ctx context.Context, txn *sql.Tx, events []types.SlidingSyncEvent, checkFields bool) (map[string]int64, error)
+	SelectByNIDs(ctx context.Context, txn *sql.Tx, verifyAll bool, nids []int64) ([]types.SlidingSyncEvent, error)
+	SelectByIDs(ctx context.Context, txn *sql.Tx, verifyAll bool, ids []string) ([]types.SlidingSyncEvent, error)
+	SelectNIDsByIDs(ctx context.Context, txn *sql.Tx, ids []string) (map[string]int64, error)
+	SelectStrippedEventsByNIDs(ctx context.Context, txn *sql.Tx, verifyAll bool, nids []int64) (types.SlidingSyncStrippedEvents, error)
+	SelectStrippedEventsByIDs(ctx context.Context, txn *sql.Tx, verifyAll bool, ids []string) (types.SlidingSyncStrippedEvents, error)
+	SelectUnknownEventIDs(ctx context.Context, txn *sql.Tx, maybeUnknownEventIDs []string) (map[string]struct{}, error)
+	UpdateBeforeSnapshotID(ctx context.Context, txn *sql.Tx, eventNID, snapID, replacesNID int64) error
+	LatestEventInRooms(ctx context.Context, txn *sql.Tx, roomIDs []string, highestNID int64) ([]types.SlidingSyncEvent, error)
+	LatestEventNIDInRooms(ctx context.Context, txn *sql.Tx, roomIDs []string, highestNID int64) (map[string]int64, error)
+	Redact(ctx context.Context, txn *sql.Tx, roomVer string, redacteeEventIDToRedactEvent map[string]*types.SlidingSyncEvent) error
+	SelectLatestEventsBetween(ctx context.Context, txn *sql.Tx, roomID string, lowerExclusive, upperInclusive int64, limit int) ([]types.SlidingSyncEvent, error)
+	SelectLatestEventByTypeInAllRooms(ctx context.Context, txn *sql.Tx) ([]types.SlidingSyncEvent, error)
+	SelectEventsWithTypeStateKey(ctx context.Context, txn *sql.Tx, eventType, stateKey string, lowerExclusive, upperInclusive int64) ([]types.SlidingSyncEvent, error)
+	SelectEventsWithTypeStateKeyInRooms(ctx context.Context, txn *sql.Tx, roomIDs []string, eventType, stateKey string, lowerExclusive, upperInclusive int64) ([]types.SlidingSyncEvent, error)
+	SelectEventNIDsWithTypeInRoom(ctx context.Context, txn *sql.Tx, eventType string, limit int, targetRoom string, lowerExclusive, upperInclusive int64) ([]int64, error)
+	SelectClosestPrevBatchByID(ctx context.Context, txn *sql.Tx, roomID string, eventID string) (string, error)
+	SelectClosestPrevBatch(ctx context.Context, txn *sql.Tx, roomID string, eventNID int64) (string, error)
+	SelectCreateEvent(ctx context.Context, txn *sql.Tx, roomID string) (json.RawMessage, error)
+	CountCurrentStateRedactions(ctx context.Context, txn *sql.Tx, snapshotID int64, eventIDs []string) (int64, error)
+}
+
+type SlidingSyncInvites interface {
+	RemoveInvite(ctx context.Context, txn *sql.Tx, userID, roomID string) error
+	RemoveSupersededInvites(ctx context.Context, txn *sql.Tx, roomID string, newEvents []types.SlidingSyncEvent) error
+	InsertInvite(ctx context.Context, txn *sql.Tx, userID, roomID string, inviteRoomState []json.RawMessage) error
+	SelectInviteState(ctx context.Context, txn *sql.Tx, userID, roomID string) (inviteState []json.RawMessage, err error)
+	SelectAllInvitesForUser(ctx context.Context, txn *sql.Tx, userID string) (map[string][]json.RawMessage, error)
+}
+
+type SlidingSyncUnread interface {
+	SelectAllNonZeroCountsForUser(ctx context.Context, txn *sql.Tx, userID string, callback func(roomID string, highlightCount, notificationCount int)) error
+	SelectUnreadCounters(ctx context.Context, txn *sql.Tx, userID, roomID string) (highlightCount, notificationCount int, err error)
+	UpdateUnreadCounters(ctx context.Context, txn *sql.Tx, userID, roomID string, highlightCount, notificationCount *int) error
+}
+
+type SlidingSyncTyping interface {
+	SelectHighestID(ctx context.Context, txn *sql.Tx) (id int64, err error)
+	SetTyping(ctx context.Context, txn *sql.Tx, roomID string, userIDs []string) (position int64, err error)
+	Typing(ctx context.Context, txn *sql.Tx, roomID string, fromStreamIDExcl, toStreamIDIncl int64) (userIDs []string, latest int64, err error)
+}
+
+type SlidingSyncTxn interface {
+	Insert(ctx context.Context, txn *sql.Tx, userID, deviceID string, eventIDToTxnID map[string]string) error
+	Select(ctx context.Context, txn *sql.Tx, userID, deviceID string, eventIDs []string) (map[string]string, error)
+	Clean(ctx context.Context, txn *sql.Tx, boundaryTime time.Time) error
+}
+
+type SlidingSyncToDevice interface {
+	SetUnackedPosition(ctx context.Context, txn *sql.Tx, userID, deviceID string, pos int64) error
+	DeleteMessagesUpToAndIncluding(ctx context.Context, txn *sql.Tx, userID, deviceID string, toIncl int64) error
+	DeleteAllMessagesForDevice(ctx context.Context, txn *sql.Tx, userID, deviceID string) error
+	Messages(ctx context.Context, txn *sql.Tx, userID, deviceID string, from, limit int64) (msgs []json.RawMessage, upTo int64, err error)
+	InsertMessages(ctx context.Context, txn *sql.Tx, userID, deviceID string, msgs []json.RawMessage) (pos int64, err error)
+}
+
+type SlidingSyncSpaces interface {
+	BulkInsert(ctx context.Context, txn *sql.Tx, relations []types.SlidingSyncSpaceRelation) error
+	BulkDelete(ctx context.Context, txn *sql.Tx, relations []types.SlidingSyncSpaceRelation) error
+	SelectChildren(ctx context.Context, txn *sql.Tx, spaces []string) (map[string][]types.SlidingSyncSpaceRelation, error)
+	HandleSpaceUpdates(ctx context.Context, txn *sql.Tx, events []types.SlidingSyncEvent) error
+}
+
+type SlidingSyncSnapshot interface {
+	CurrentSnapshots(ctx context.Context, txn *sql.Tx) (map[string][]int64, error)
+	Select(ctx context.Context, txn *sql.Tx, snapshotID int64) (row types.SlidingSyncSnapshotRow, err error)
+	Insert(ctx context.Context, txn *sql.Tx, row *types.SlidingSyncSnapshotRow) error
+	Delete(ctx context.Context, txn *sql.Tx, snapshotIDs []int64) error
+}
+
+type SlidingSyncReceipt interface {
+	Insert(ctx context.Context, txn *sql.Tx, roomID string, ephEvent json.RawMessage) (receipts []types.SlidingSyncReceipt, err error)
+	SelectReceiptsForEvents(ctx context.Context, txn *sql.Tx, roomID string, eventIDs []string) (receipts []types.SlidingSyncReceipt, err error)
+	SelectReceiptsForUser(ctx context.Context, txn *sql.Tx, roomIDs []string, userID string) (receiptsByRoom map[string][]types.SlidingSyncReceipt, err error)
+}
+
+type SlidingSyncDeviceList interface {
+	Upsert(ctx context.Context, txn *sql.Tx, userID, deviceID string, deviceListChanges map[string]int) (err error)
+	Select(ctx context.Context, txn *sql.Tx, userID, deviceID string, swap bool) (result types.SlidingSyncMapStringInt, err error)
+}
+
+type SlidingSyncDeviceData interface {
+	Select(ctx context.Context, txn *sql.Tx, userID, deviceID string, swap bool) (result *types.SlidingSyncDeviceData, err error)
+	Upsert(ctx context.Context, txn *sql.Tx, userID, deviceID string, keys types.SlidingSyncDeviceKeyData, deviceListChanges map[string]int) (err error)
+}
+
+type SlidingSyncDevices interface {
+	InsertDevice(ctx context.Context, txn *sql.Tx, userID, deviceID string) error
+	UpdateDeviceSince(ctx context.Context, txn *sql.Tx, userID, deviceID, since string) error
+	FindOldDevices(ctx context.Context, txn *sql.Tx, inactivityPeriod time.Duration) (devices []types.SlidingSyncDevice, err error)
+	SelectSince(ctx context.Context, txn *sql.Tx, userID, deviceID string) (since string, err error)
 }

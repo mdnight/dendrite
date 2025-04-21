@@ -13,9 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/element-hq/dendrite/internal"
+	"github.com/sirupsen/logrus"
 )
 
 const createDBMigrationsSQL = "" +

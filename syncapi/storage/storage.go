@@ -16,17 +16,20 @@ import (
 	"github.com/element-hq/dendrite/internal/sqlutil"
 	"github.com/element-hq/dendrite/setup/config"
 	"github.com/element-hq/dendrite/syncapi/storage/postgres"
+	"github.com/element-hq/dendrite/syncapi/storage/shared"
 	"github.com/element-hq/dendrite/syncapi/storage/sqlite3"
 )
 
 // NewSyncServerDatasource opens a database connection.
-func NewSyncServerDatasource(ctx context.Context, conMan *sqlutil.Connections, dbProperties *config.DatabaseOptions) (Database, error) {
+func NewSyncServerDatasource(ctx context.Context, conMan *sqlutil.Connections, dbProperties *config.DatabaseOptions) (Database, *shared.Database, error) {
 	switch {
 	case dbProperties.ConnectionString.IsSQLite():
-		return sqlite3.NewDatabase(ctx, conMan, dbProperties)
+		db, err := sqlite3.NewDatabase(ctx, conMan, dbProperties)
+		return db, &db.Database, err
 	case dbProperties.ConnectionString.IsPostgres():
-		return postgres.NewDatabase(ctx, conMan, dbProperties)
+		db, err := postgres.NewDatabase(ctx, conMan, dbProperties)
+		return db, &db.Database, err
 	default:
-		return nil, fmt.Errorf("unexpected database type")
+		return nil, nil, fmt.Errorf("unexpected database type")
 	}
 }

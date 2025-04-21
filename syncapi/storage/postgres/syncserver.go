@@ -94,6 +94,62 @@ func NewDatabase(ctx context.Context, cm *sqlutil.Connections, dbProperties *con
 	if err != nil {
 		return nil, err
 	}
+	slidingSyncAccountData, err := NewPostgresSlidingSyncAccountDataTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncRooms, err := NewPostgresSlidingSyncRoomsTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncUnread, err := NewPostgresSlidingSyncUnreadTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncSnapshot, err := NewPostgresSlidingSyncSnapshotTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncInvites, err := NewPostgresSlidingSyncInvitesTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncTyping, err := NewPostgresSlidingSyncTypingTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncEvent, err := NewPostgresSlidingSyncEventTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncTxn, err := NewPostgresSlidingSyncTxnTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncToDevice, err := NewPostgresSlidingSyncToDeviceTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncSpaces, err := NewPostgresSlidingSyncSpacesTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncReceipt, err := NewPostgresSlidingSyncReceiptTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncDeviceList, err := NewPostgresSlidingSyncDeviceListTable(d.db)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncDeviceData, err := NewPostgresSlidingSyncDeviceDataTable(d.db, slidingSyncDeviceList)
+	if err != nil {
+		return nil, err
+	}
+	slidingSyncDevice, err := NewPostgresSlidingSyncDevicesTable(d.db)
+	if err != nil {
+		return nil, err
+	}
 
 	// apply migrations which need multiple tables
 	m := sqlutil.NewMigrator(d.db)
@@ -109,23 +165,37 @@ func NewDatabase(ctx context.Context, cm *sqlutil.Connections, dbProperties *con
 	}
 
 	d.Database = shared.Database{
-		DB:                  d.db,
-		Writer:              d.writer,
-		Invites:             invites,
-		Peeks:               peeks,
-		AccountData:         accountData,
-		OutputEvents:        events,
-		Topology:            topology,
-		CurrentRoomState:    currState,
-		BackwardExtremities: backwardExtremities,
-		Filter:              filter,
-		SendToDevice:        sendToDevice,
-		Receipts:            receipts,
-		Memberships:         memberships,
-		NotificationData:    notificationData,
-		Ignores:             ignores,
-		Presence:            presence,
-		Relations:           relations,
+		DB:                     d.db,
+		Writer:                 d.writer,
+		Invites:                invites,
+		Peeks:                  peeks,
+		AccountData:            accountData,
+		OutputEvents:           events,
+		Topology:               topology,
+		CurrentRoomState:       currState,
+		BackwardExtremities:    backwardExtremities,
+		Filter:                 filter,
+		SendToDevice:           sendToDevice,
+		Receipts:               receipts,
+		Memberships:            memberships,
+		NotificationData:       notificationData,
+		Ignores:                ignores,
+		Presence:               presence,
+		Relations:              relations,
+		SlidingSyncAccountData: slidingSyncAccountData,
+		SlidingSyncRooms:       slidingSyncRooms,
+		SlidingSyncUnread:      slidingSyncUnread,
+		SlidingSyncInvites:     slidingSyncInvites,
+		SlidingSyncTyping:      slidingSyncTyping,
+		SlidingSyncEvent:       slidingSyncEvent,
+		SlidingSyncTxn:         slidingSyncTxn,
+		SlidingSyncToDevice:    slidingSyncToDevice,
+		SlidingSyncSpaces:      slidingSyncSpaces,
+		SlidingSyncSnapthot:    slidingSyncSnapshot,
+		SlidingSyncReceipt:     slidingSyncReceipt,
+		SlidingSyncDeviceList:  slidingSyncDeviceList,
+		SlidingSyncDeviceData:  slidingSyncDeviceData,
+		SlidingSyncDevice:      slidingSyncDevice,
 	}
 	return &d, nil
 }

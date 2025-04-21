@@ -8,6 +8,7 @@ package syncapi
 
 import (
 	"context"
+	"time"
 
 	"github.com/element-hq/dendrite/internal/fulltext"
 	"github.com/element-hq/dendrite/internal/httputil"
@@ -26,6 +27,7 @@ import (
 	"github.com/element-hq/dendrite/syncapi/notifier"
 	"github.com/element-hq/dendrite/syncapi/producers"
 	"github.com/element-hq/dendrite/syncapi/routing"
+	"github.com/element-hq/dendrite/syncapi/slidingsync"
 	"github.com/element-hq/dendrite/syncapi/storage"
 	"github.com/element-hq/dendrite/syncapi/streams"
 	"github.com/element-hq/dendrite/syncapi/sync"
@@ -46,7 +48,7 @@ func AddPublicRoutes(
 ) {
 	js, natsClient := natsInstance.Prepare(processContext, &dendriteCfg.Global.JetStream)
 
-	syncDB, err := storage.NewSyncServerDatasource(processContext.Context(), cm, &dendriteCfg.SyncAPI.Database)
+	syncDB, sharedDB, err := storage.NewSyncServerDatasource(processContext.Context(), cm, &dendriteCfg.SyncAPI.Database)
 	if err != nil {
 		logrus.WithError(err).Panicf("failed to connect to sync db")
 	}
@@ -78,6 +80,11 @@ func AddPublicRoutes(
 	)
 
 	requestPool := sync.NewRequestPool(syncDB, &dendriteCfg.SyncAPI, userAPI, rsAPI, streams, notifier, federationPresenceProducer, presenceConsumer, enableMetrics)
+
+	syncHandler2, slidingSyncHandler := slidingsync.Setup(sharedDB, requestPool, slidingsync.Opts{})
+
+	syncHandler2.StartV2Pollers()
+	go syncHandler2.Store.Cleaner(context.Background(), time.Hour)
 
 	if err = presenceConsumer.Start(); err != nil {
 		logrus.WithError(err).Panicf("failed to start presence consumer")
@@ -148,6 +155,6 @@ func AddPublicRoutes(
 	routing.Setup(
 		routers.Client, requestPool, syncDB, userAPI,
 		rsAPI, &dendriteCfg.SyncAPI, caches, fts,
-		rateLimits,
+		rateLimits, slidingSyncHandler,
 	)
 }
